@@ -56,7 +56,6 @@ runcmd:
   - bash -lc 'python3 -c "import pydicom,sys; print(\"pydicom\", pydicom.__version__)" >> /repo/staging/.data/vm-result.txt 2>&1'
   - bash -lc 'cd /repo/staging && docker compose up -d --build >> /repo/staging/.data/vm-result.txt 2>&1 || true'
   - bash -lc 'cd /repo/staging && python3 -m pytest -q -o cache_dir=/tmp/ptc >> /repo/staging/.data/vm-result.txt 2>&1; echo "PYTEST_EXIT=$?" >> /repo/staging/.data/vm-result.txt'
-  - bash -lc 'echo "--- PACS stored studies (diagnostic) ---" >> /repo/staging/.data/vm-result.txt; curl -s "http://localhost:8101/studies?expand" >> /repo/staging/.data/vm-result.txt 2>&1 || true; echo >> /repo/staging/.data/vm-result.txt'
   - bash -lc 'cd /repo/staging && echo "--- proxy logs ---" >> /repo/staging/.data/vm-result.txt && docker compose logs --tail=40 proxy >> /repo/staging/.data/vm-result.txt 2>&1 || true'
   - bash -lc 'cd /repo/staging && docker compose down -v >> /repo/staging/.data/vm-result.txt 2>&1 || true'
   - [ sync ]
