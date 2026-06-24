@@ -43,6 +43,10 @@ volume (`deploy/luks-setup.md`) and start:
 # evict.service is triggered by the timer — do not enable it directly
 sudo systemctl enable --now orthanc-proxy.service orthanc-proxy-evict.timer
 ```
+`install.sh` picks the LSB Python-plugin build for the host (Debian codename, or `VERSION_ID`
+on Astra). **On Astra Linux SE «Smolensk» read [`deploy/astra-notes.md`](deploy/astra-notes.md)**
+first — plugin build per Astra version, the `libpython` requirement when `python3` was swapped,
+ЗПС self-signing, МКЦ write-paths, and GOST disk encryption.
 
 ### 3. Configure downstream (Clarinet side — not in this repo)
 Each project: `pacs_host=<proxy>`, `pacs_port=4242`, `pacs_aet="CLARINETPROXY"`,
