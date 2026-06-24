@@ -46,17 +46,18 @@ package_update: true
 packages:
   - docker.io
   - docker-compose-v2
-  - python3-pytest
-  - python3-requests
-  - python3-pydicom
+  - python3-pip
 runcmd:
   - [ mkdir, -p, /repo ]
   - [ mount, -t, 9p, -o, "trans=virtio,version=9p2000.L,msize=104857600,access=any", repo, /repo ]
   - [ mkdir, -p, /repo/staging/.data ]
   - [ systemctl, enable, --now, docker ]
-  - bash -lc 'cd /repo/staging && docker compose up -d --build > /repo/staging/.data/vm-result.txt 2>&1 || true'
+  - bash -lc 'pip3 install --break-system-packages -q pytest requests pydicom > /repo/staging/.data/vm-result.txt 2>&1 || true'
+  - bash -lc 'python3 -c "import pydicom,sys; print(\"pydicom\", pydicom.__version__)" >> /repo/staging/.data/vm-result.txt 2>&1'
+  - bash -lc 'cd /repo/staging && docker compose up -d --build >> /repo/staging/.data/vm-result.txt 2>&1 || true'
   - bash -lc 'cd /repo/staging && python3 -m pytest -q -o cache_dir=/tmp/ptc >> /repo/staging/.data/vm-result.txt 2>&1; echo "PYTEST_EXIT=$?" >> /repo/staging/.data/vm-result.txt'
-  - bash -lc 'cd /repo/staging && echo "--- proxy logs ---" >> /repo/staging/.data/vm-result.txt && docker compose logs --tail=60 proxy >> /repo/staging/.data/vm-result.txt 2>&1 || true'
+  - bash -lc 'echo "--- PACS stored studies (diagnostic) ---" >> /repo/staging/.data/vm-result.txt; curl -s "http://localhost:8101/studies?expand" >> /repo/staging/.data/vm-result.txt 2>&1 || true; echo >> /repo/staging/.data/vm-result.txt'
+  - bash -lc 'cd /repo/staging && echo "--- proxy logs ---" >> /repo/staging/.data/vm-result.txt && docker compose logs --tail=40 proxy >> /repo/staging/.data/vm-result.txt 2>&1 || true'
   - bash -lc 'cd /repo/staging && docker compose down -v >> /repo/staging/.data/vm-result.txt 2>&1 || true'
   - [ sync ]
   - [ touch, /repo/staging/.data/vm-done ]
