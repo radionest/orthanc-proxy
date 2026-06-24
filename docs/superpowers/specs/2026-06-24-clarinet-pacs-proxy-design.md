@@ -202,7 +202,10 @@ time out on large studies. All logged via `orthanc.LogError`.
   `HttpBindAddresses:["127.0.0.1"]`, `RemoteAccessAllowed:false`,
   `StorageDirectory:"/var/lib/orthanc-proxy/storage"`, `IndexDirectory:"/var/lib/orthanc-proxy/db"`,
   `MaximumStorageSize:14336`, `MaximumStorageMode:"Recycle"`, `MaximumStorageCacheSize:512`,
-  `StorageCompression:false`, `StableAge:20`.
+  `StorageCompression:false`, `StableAge:20`, `DefaultEncoding:"Utf8"` (Orthanc re-encodes every
+  C-FIND answer to its `DefaultEncoding`; `Utf8`=ISO_IR 192 is required end-to-end so Cyrillic
+  `PatientName` survives — see §12; the upstream PACS and any Orthanc-based downstream consumer
+  must use `Utf8` too).
 - **`20-security.json`** — `DicomCheckCalledAet:true`, `DicomCheckModalityHost:true`,
   `DicomAlwaysAllowEcho|Store|Find|Move|Get:false`.
 - **`30-modalities.json`** —
@@ -276,9 +279,15 @@ a simulated downstream worker (another Orthanc as C-STORE SCP), and the proxy. `
 
 `?expand` on query answers; Orthanc 1.12.11 **C-GET SCP** availability + `AllowGet` semantics;
 move-to-self timing/timeout for 2 GB studies (async job + per-instance arrival polling);
-`PublicRoot` + `Forwarded` → correct `BulkDataURI`; Python-plugin **ABI match** on the prod host;
-`SpecificCharacterSet` round-trip (OnFind pins `ISO_IR 192` — verify byte-identical Cyrillic
-`PatientName` on staging).
+`PublicRoot` + `Forwarded` → correct `BulkDataURI`; Python-plugin **ABI match** on the prod host.
+
+**Charset (RESOLVED on staging).** Cyrillic `PatientName` round-trip was verified end-to-end. Root
+cause found during e2e: Orthanc's C-FIND SCP re-encodes **every** answer to the node's
+`DefaultEncoding` (default Latin1, which drops Cyrillic) — there is no plugin API to set per-answer
+encoding. Fix: `DefaultEncoding:"Utf8"` on the proxy **and** the upstream PACS **and** any
+Orthanc-based downstream consumer (each node re-encodes what it sends/receives). OnFind also pins
+`ISO_IR 192` on the answer dataset and requests it in the upstream C-FIND query, but
+`DefaultEncoding` is the decisive setting.
 
 ## 13. Downstream Clarinet compatibility (do not change Clarinet)
 

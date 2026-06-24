@@ -51,6 +51,14 @@ Each project: `pacs_host=<proxy>`, `pacs_port=4242`, `pacs_aet="CLARINETPROXY"`,
 nginx must reverse-proxy `/pacs-web/` → `127.0.0.1:8042/dicom-web/` and forward
 `Forwarded`/`X-Forwarded-*` headers so `BulkDataURI` resolves back through nginx.
 
+> **Character set (important for non-ASCII names, e.g. Cyrillic).** The proxy answers
+> C-FIND in **UTF-8** (`SpecificCharacterSet = ISO_IR 192`); this is set by
+> `DefaultEncoding: "Utf8"` in `10-core.json`. Orthanc re-encodes every DICOM message to
+> its own `DefaultEncoding`, so **every Orthanc node on the path must use `Utf8`** or it
+> will down-convert names to Latin-1 and drop the characters it can't represent. If a
+> downstream consumer is itself Orthanc-based, set its `DefaultEncoding` to `Utf8` too;
+> non-Orthanc consumers must simply accept `ISO_IR 192` responses.
+
 ### 4. Firewall
 Allow inbound :4242 only from loopback, the worker LAN IPs, and the PACS IP. HTTP :8042
 is bound to localhost; OHIF reaches it only via the same-host nginx.
@@ -62,6 +70,10 @@ is bound to localhost; OHIF reaches it only via the same-host nginx.
 
 ## Development
 ```bash
-pytest -q                              # unit tests (pure core + glue with fake orthanc)
-cd staging && docker compose up -d --build && pytest -q   # end-to-end DICOM tests
+uv run pytest -q                       # unit tests (pure core + glue with a fake orthanc)
+bash staging/vm/run.sh                 # end-to-end DICOM tests in a throwaway Docker-in-VM
 ```
+The unit suite needs no DICOM stack. The end-to-end suite (`staging/`) brings up a 3-node
+DICOM network (pacs/proxy/worker) under Docker; on a host without Docker, `staging/vm/run.sh`
+runs it inside a QEMU/KVM VM (see `staging/vm/README.md`). On a Docker host you can instead run
+`cd staging && docker compose up -d --build && pytest -q`.
