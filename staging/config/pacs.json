@@ -9,5 +9,6 @@
   "DicomAlwaysAllowFind": true,
   "DicomAlwaysAllowMove": true,
   "DicomAlwaysAllowStore": true,
-  "DicomModalities": { "proxy": ["CLARINETPROXY", "proxy", 4242] }
+  "DicomModalities": { "proxy": ["CLARINETPROXY", "proxy", 4242] },
+  "DefaultEncoding": "Unicode"
 }

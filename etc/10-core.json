@@ -1,6 +1,7 @@
 {
   "Name": "clarinet-pacs-proxy",
   "DicomAet": "CLARINETPROXY",
+  "DefaultEncoding": "Unicode",
   "DicomPort": 4242,
   "DicomServerEnabled": true,
   "HttpServerEnabled": true,
