@@ -31,3 +31,40 @@ def pin_charset(content):
     answer = dict(content)
     answer["SpecificCharacterSet"] = ANSWER_CHARSET
     return answer
+
+
+def parse_move_request(request):
+    """request: the C-MOVE callback dict. Returns (level, uids) where uids is a list of
+    fully-qualified UID dicts, one per requested item. '\\'-separated values expand positionally."""
+    level = request["Level"]
+    if level not in LEVEL_KEYS:
+        raise ValueError("unsupported C-MOVE level %r (PATIENT not supported)" % level)
+    keys = LEVEL_KEYS[level]
+    split = {k: (request.get(k, "") or "").split("\\") for k in keys}
+    n = max((len(v) for v in split.values()), default=1)
+    uids = []
+    for i in range(n):
+        item = {}
+        for k in keys:
+            vals = split[k]
+            item[k] = vals[i] if i < len(vals) else vals[-1]
+        uids.append(item)
+    return level, uids
+
+
+def find_alias_for_aet(modalities, aet):
+    for alias, entry in modalities.items():
+        if entry.get("AET") == aet:
+            return alias
+    return None
+
+
+def resolve_destination(target_aet, self_aet, modalities, upstream_alias):
+    if not target_aet:
+        raise ValueError("malformed C-MOVE-RQ: missing TargetAET")
+    if target_aet == self_aet:
+        return ("cache", None)
+    alias = find_alias_for_aet(modalities, target_aet)
+    if alias is None or alias == upstream_alias:
+        raise ValueError("unknown move destination AET %r" % target_aet)
+    return ("forward", alias)
