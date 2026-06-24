@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
 VER="1.12.11"
 DICOMWEB_VER="1.23"
 DEST="${DEST:-/opt/orthanc}"
@@ -36,8 +39,8 @@ main() {
   curl -fsSL "$dicomweb_url" -o "$DEST/plugins/libOrthancDicomWeb.so"
   curl -fsSL "$py_url"       -o "$DEST/plugins/libOrthancPython.so"
   chmod +x "$DEST/bin/Orthanc"
-  install -m 0644 plugin/clarinet_proxy.py plugin/proxy_core.py "$DEST/plugins/"
-  install -m 0755 deploy/evict.py "$DEST/deploy/"
+  install -m 0644 "$REPO_ROOT/plugin/clarinet_proxy.py" "$REPO_ROOT/plugin/proxy_core.py" "$DEST/plugins/"
+  install -m 0755 "$REPO_ROOT/deploy/evict.py" "$DEST/deploy/"
   echo "Installed to $DEST. Place etc/*.json in /etc/orthanc-proxy/ and enable the systemd units."
 }
 

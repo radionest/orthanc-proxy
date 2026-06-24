@@ -8,7 +8,7 @@ across reboots, and Orthanc starts only after the volume is unlocked and mounted
 
 ```bash
 # 1. Create the LUKS container on the SSD partition (DESTROYS data on it)
-cryptsetup luksFormat /dev/sdX1
+cryptsetup luksFormat --batch-mode --type luks2 /dev/sdX1
 
 # 2. Add a keyfile so the volume unlocks unattended at boot
 dd if=/dev/urandom of=/etc/orthanc-proxy.key bs=4096 count=1
@@ -33,7 +33,7 @@ orthanc-proxy  /dev/sdX1  /etc/orthanc-proxy.key  luks
 
 `/etc/fstab`:
 ```
-/dev/mapper/orthanc-proxy  /var/lib/orthanc-proxy  ext4  defaults  0  2
+/dev/mapper/orthanc-proxy  /var/lib/orthanc-proxy  ext4  defaults,nofail  0  2
 ```
 
 The `RequiresMountsFor=/var/lib/orthanc-proxy` line in `orthanc-proxy.service`
