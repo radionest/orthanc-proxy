@@ -1,0 +1,5 @@
+{
+  "Plugins": ["/opt/orthanc/plugins"],
+  "PythonScript": "/opt/orthanc/plugins/clarinet_proxy.py",
+  "PythonVerbose": false
+}

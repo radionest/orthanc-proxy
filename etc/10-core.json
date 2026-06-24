@@ -1,0 +1,17 @@
+{
+  "Name": "clarinet-pacs-proxy",
+  "DicomAet": "CLARINETPROXY",
+  "DicomPort": 4242,
+  "DicomServerEnabled": true,
+  "HttpServerEnabled": true,
+  "HttpPort": 8042,
+  "HttpBindAddresses": ["127.0.0.1"],
+  "RemoteAccessAllowed": false,
+  "StorageDirectory": "/var/lib/orthanc-proxy/storage",
+  "IndexDirectory": "/var/lib/orthanc-proxy/db",
+  "StorageCompression": false,
+  "MaximumStorageSize": 14336,
+  "MaximumStorageMode": "Recycle",
+  "MaximumStorageCacheSize": 512,
+  "StableAge": 20
+}

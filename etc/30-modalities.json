@@ -1,0 +1,24 @@
+{
+  "DicomModalities": {
+    "pacs": {
+      "AET": "HOSPITALPACS",
+      "Host": "10.0.0.10",
+      "Port": 104,
+      "AllowEcho": true,
+      "AllowStore": true,
+      "AllowFind": false,
+      "AllowMove": false,
+      "AllowGet": false
+    },
+    "worker_X": {
+      "AET": "WORKER_X",
+      "Host": "10.0.0.21",
+      "Port": 4242,
+      "AllowEcho": true,
+      "AllowFind": true,
+      "AllowMove": true,
+      "AllowGet": true,
+      "AllowStore": false
+    }
+  }
+}

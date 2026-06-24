@@ -1,0 +1,9 @@
+{
+  "DicomCheckCalledAet": true,
+  "DicomCheckModalityHost": true,
+  "DicomAlwaysAllowEcho": false,
+  "DicomAlwaysAllowStore": false,
+  "DicomAlwaysAllowFind": false,
+  "DicomAlwaysAllowMove": false,
+  "DicomAlwaysAllowGet": false
+}
