@@ -44,6 +44,7 @@ Copied from the spec — every task inherits these:
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv/
 staging/.data/
 *.log
 ```
