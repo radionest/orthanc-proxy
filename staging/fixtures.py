@@ -21,7 +21,12 @@ def build_cyrillic_instance(study_uid, series_uid, sop_uid):
     meta.TransferSyntaxUID = ExplicitVRLittleEndian
     ds.file_meta = meta
     buf = io.BytesIO()
-    pydicom.dcmwrite(buf, ds, enforce_file_format=True)
+    try:
+        pydicom.dcmwrite(buf, ds, enforce_file_format=True)   # pydicom >= 3.0
+    except TypeError:
+        ds.is_little_endian = True                            # pydicom < 3.0 fallback
+        ds.is_implicit_VR = False
+        pydicom.dcmwrite(buf, ds, write_like_original=False)
     return buf.getvalue()
 
 
