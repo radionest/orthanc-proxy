@@ -1,0 +1,12 @@
+[Unit]
+Description=clarinet-pacs-proxy cache TTL eviction
+After=orthanc-proxy.service
+
+[Service]
+Type=oneshot
+User=orthanc
+Environment=ORTHANC_URL=http://127.0.0.1:8042
+Environment=PROXY_CORE_DIR=/opt/orthanc/plugins
+Environment=TTL_SECONDS=1200
+Environment=MAX_STORAGE_MB=14336
+ExecStart=/usr/bin/python3 /opt/orthanc/deploy/evict.py
