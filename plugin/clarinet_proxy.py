@@ -40,3 +40,70 @@ def OnFind(answers, query, issuerAet, calledAet):
 
 
 orthanc.RegisterFindCallback(OnFind)
+
+
+class MoveDriver:
+    def __init__(self, request):
+        self.level, self.uids = core.parse_move_request(request)
+        modalities = _get("/modalities?expand")
+        self.mode, self.worker = core.resolve_destination(
+            request.get("TargetAET"), SELF_AET, modalities, UPSTREAM)
+        self.forwarded = set()
+        self.move_job = None
+        self.expected = 0
+
+    def _count(self):
+        total = 0
+        for body in core.count_query_bodies(self.level, self.uids):
+            qid = _post("/modalities/%s/query" % UPSTREAM, body)["ID"]
+            try:
+                total += len(_get("/queries/%s/answers" % qid))
+            finally:
+                orthanc.RestApiDelete("/queries/%s" % qid)
+        return total
+
+    def get_size(self):
+        self.expected = self._count()
+        self.move_job = _post("/modalities/%s/move" % UPSTREAM, {
+            "Level": self.level, "Resources": self.uids,
+            "TargetAet": SELF_AET, "Synchronous": False})["ID"]
+        return self.expected
+
+    def _local_ids(self):
+        ids = []
+        for body in core.local_find_bodies(self.level, self.uids):
+            ids.extend(r["ID"] for r in _post("/tools/find", body))
+        return ids
+
+    def _job_failed(self):
+        return _get("/jobs/%s" % self.move_job)["State"] == "Failure"
+
+    def _next_arrival(self):
+        deadline = time.time() + ARRIVAL_TIMEOUT
+        while True:
+            oid = core.select_unforwarded(self._local_ids(), self.forwarded)
+            if oid is not None:
+                return oid
+            if self._job_failed():
+                raise Exception("upstream C-MOVE job %s failed" % self.move_job)
+            if time.time() > deadline:
+                raise Exception("timed out waiting for instance arrival")
+            time.sleep(POLL_INTERVAL)
+
+    def apply(self):
+        oid = self._next_arrival()
+        if self.mode == "forward":
+            _post("/modalities/%s/store" % self.worker,
+                  {"Resources": [oid], "Synchronous": True})
+        self.forwarded.add(oid)
+        return orthanc.ErrorCode.SUCCESS
+
+    def free(self):
+        pass
+
+
+orthanc.RegisterMoveCallback2(
+    lambda **r: MoveDriver(r),
+    lambda d: d.get_size(),
+    lambda d: d.apply(),
+    lambda d: d.free())
