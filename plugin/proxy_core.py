@@ -1,5 +1,7 @@
 """Pure proxy logic — no `import orthanc`, fully unit-testable."""
 
+import datetime
+
 SELF_AET = "CLARINETPROXY"
 UPSTREAM = "pacs"
 ANSWER_CHARSET = "ISO_IR 192"
@@ -85,3 +87,12 @@ def select_unforwarded(found_ids, forwarded):
         if oid not in forwarded:
             return oid
     return None
+
+
+def is_expired(last_update, now, ttl_seconds):
+    ts = datetime.datetime.strptime(last_update, "%Y%m%dT%H%M%S")
+    return (now - ts).total_seconds() > ttl_seconds
+
+
+def expired_studies(studies, now, ttl_seconds):
+    return [s["ID"] for s in studies if is_expired(s["LastUpdate"], now, ttl_seconds)]

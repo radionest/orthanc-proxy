@@ -1,3 +1,4 @@
+import datetime
 import pytest
 import proxy_core
 
@@ -102,3 +103,18 @@ def test_select_unforwarded_skips_forwarded():
 
 def test_select_unforwarded_none_left():
     assert proxy_core.select_unforwarded(["a"], {"a"}) is None
+
+
+def test_is_expired_true_and_false():
+    now = datetime.datetime(2026, 6, 24, 12, 0, 0)
+    assert proxy_core.is_expired("20260624T113000", now, 1200) is True   # 30 min old > 20 min
+    assert proxy_core.is_expired("20260624T115500", now, 1200) is False  # 5 min old
+
+
+def test_expired_studies_filters_by_last_update():
+    now = datetime.datetime(2026, 6, 24, 12, 0, 0)
+    studies = [
+        {"ID": "old", "LastUpdate": "20260624T112000"},
+        {"ID": "fresh", "LastUpdate": "20260624T115900"},
+    ]
+    assert proxy_core.expired_studies(studies, now, 1200) == ["old"]
