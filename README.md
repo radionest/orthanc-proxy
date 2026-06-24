@@ -32,13 +32,15 @@ Give the PACS admins this move-destination:
 ### 2. Install (systemd + LSB)
 ```bash
 sudo DEST=/opt/orthanc bash deploy/install.sh        # downloads Orthanc 1.12.11 + plugins (host-ABI Python)
-sudo cp -r etc /etc/orthanc-proxy
+sudo install -d /etc/orthanc-proxy
+sudo cp -r etc/. /etc/orthanc-proxy
 sudo cp deploy/orthanc-proxy.service deploy/orthanc-proxy-evict.{service,timer} /etc/systemd/system/
 ```
 Edit `/etc/orthanc-proxy/30-modalities.json`: set the real `pacs` AET/host/port and add one
 `worker_<name>` entry per downstream worker (AET, host, port). Then set up the encrypted
 volume (`deploy/luks-setup.md`) and start:
 ```bash
+# evict.service is triggered by the timer — do not enable it directly
 sudo systemctl enable --now orthanc-proxy.service orthanc-proxy-evict.timer
 ```
 
