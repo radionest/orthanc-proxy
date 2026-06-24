@@ -1,0 +1,16 @@
+[Unit]
+Description=clarinet-pacs-proxy (Orthanc DICOM/DICOMweb proxy)
+Documentation=https://orthanc.uclouvain.be/book/
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/var/lib/orthanc-proxy
+
+[Service]
+User=orthanc
+Group=orthanc
+ExecStart=/opt/orthanc/bin/Orthanc /etc/orthanc-proxy/
+Restart=on-failure
+TimeoutSec=600
+
+[Install]
+WantedBy=multi-user.target
