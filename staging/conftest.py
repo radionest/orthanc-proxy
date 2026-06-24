@@ -14,7 +14,7 @@ def _ready(url):
         return False
 
 
-def wait_ready(timeout=60):
+def wait_ready(timeout=120):
     deadline = time.time() + timeout
     while time.time() < deadline:
         if all(_ready(u) for u in (PACS, PROXY, WORKER)):

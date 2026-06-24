@@ -20,8 +20,6 @@ def build_cyrillic_instance(study_uid, series_uid, sop_uid):
     meta.MediaStorageSOPInstanceUID = sop_uid
     meta.TransferSyntaxUID = ExplicitVRLittleEndian
     ds.file_meta = meta
-    ds.is_little_endian = True
-    ds.is_implicit_VR = False
     buf = io.BytesIO()
     pydicom.dcmwrite(buf, ds, enforce_file_format=True)
     return buf.getvalue()
