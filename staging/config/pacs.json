@@ -1,0 +1,13 @@
+{
+  "Name": "staging-pacs",
+  "DicomAet": "HOSPITALPACS",
+  "DicomPort": 4242,
+  "HttpPort": 8042,
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": false,
+  "DicomAlwaysAllowEcho": true,
+  "DicomAlwaysAllowFind": true,
+  "DicomAlwaysAllowMove": true,
+  "DicomAlwaysAllowStore": true,
+  "DicomModalities": { "proxy": ["CLARINETPROXY", "proxy", 4242] }
+}

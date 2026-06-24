@@ -1,0 +1,10 @@
+{
+  "Name": "staging-worker",
+  "DicomAet": "WORKER",
+  "DicomPort": 4242,
+  "HttpPort": 8042,
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": false,
+  "DicomAlwaysAllowStore": true,
+  "DicomModalities": { "proxy": ["CLARINETPROXY", "proxy", 4242] }
+}
