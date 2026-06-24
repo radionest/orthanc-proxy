@@ -8,8 +8,9 @@ import os
 import sys
 import logging
 import datetime
-
-import requests
+import json as _json
+import urllib.request
+import urllib.error
 
 sys.path.insert(0, os.environ.get("PROXY_CORE_DIR", "/opt/orthanc/plugins"))
 import proxy_core as core
@@ -23,7 +24,40 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("evict")
 
 
-def select_and_delete(base_url, now, ttl_seconds, max_storage_mb, http=requests):
+class _Resp:
+    def __init__(self, status, body):
+        self.status = status
+        self._body = body
+
+    def raise_for_status(self):
+        if self.status >= 400:
+            raise RuntimeError("HTTP %d" % self.status)
+
+    def json(self):
+        return _json.loads(self._body)
+
+
+class _UrllibHttp:
+    def _req(self, method, url, timeout):
+        req = urllib.request.Request(url, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return _Resp(r.status, r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            return _Resp(e.code, e.read().decode("utf-8"))
+
+    def get(self, url, timeout=10):
+        return self._req("GET", url, timeout)
+
+    def delete(self, url, timeout=10):
+        return self._req("DELETE", url, timeout)
+
+
+_DEFAULT_HTTP = _UrllibHttp()
+
+
+def select_and_delete(base_url, now, ttl_seconds, max_storage_mb, http=None):
+    http = http or _DEFAULT_HTTP
     r = http.get(base_url + "/studies?expand", timeout=10)
     r.raise_for_status()
     expired = core.expired_studies(r.json(), now, ttl_seconds)

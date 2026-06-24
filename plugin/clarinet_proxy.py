@@ -75,8 +75,8 @@ class MoveDriver:
             ids.extend(r["ID"] for r in _post("/tools/find", body))
         return ids
 
-    def _job_failed(self):
-        return _get("/jobs/%s" % self.move_job)["State"] == "Failure"
+    def _job_state(self):
+        return _get("/jobs/%s" % self.move_job)["State"]
 
     def _next_arrival(self):
         deadline = time.time() + ARRIVAL_TIMEOUT
@@ -84,14 +84,19 @@ class MoveDriver:
             oid = core.select_unforwarded(self._local_ids(), self.forwarded)
             if oid is not None:
                 return oid
-            if self._job_failed():
+            state = self._job_state()
+            if state == "Failure":
                 raise Exception("upstream C-MOVE job %s failed" % self.move_job)
+            if state == "Success":
+                return None   # job done; fewer instances arrived than expected, nothing left
             if time.time() > deadline:
                 raise Exception("timed out waiting for instance arrival")
             time.sleep(POLL_INTERVAL)
 
     def apply(self):
         oid = self._next_arrival()
+        if oid is None:
+            return orthanc.ErrorCode.SUCCESS   # no more arrivals; surplus sub-op is a no-op
         if self.mode == "forward":
             _post("/modalities/%s/store" % self.worker,
                   {"Resources": [oid], "Synchronous": True})

@@ -75,3 +75,14 @@ def test_init_rejects_unknown_target():
     cp, fake = load_proxy(base_routes())
     with pytest.raises(ValueError):
         cp.MoveDriver({"Level": "STUDY", "StudyInstanceUID": "1.2", "TargetAET": "GHOST"})
+
+
+def test_apply_noop_when_job_done_and_fewer_arrived():
+    routes = base_routes()
+    routes[("POST", "/tools/find")] = []                 # nothing actually arrived
+    routes[("GET", "/jobs/mj")] = {"State": "Success"}    # but the move job succeeded
+    cp, fake = load_proxy(routes)
+    d = cp.MoveDriver({"Level": "STUDY", "StudyInstanceUID": "1.2", "TargetAET": "WORKER"})
+    d.get_size()
+    assert d.apply() == 0                                 # returns SUCCESS, does NOT hang or raise
+    assert not any(u.endswith("/store") for (m, u, b) in fake.calls)
