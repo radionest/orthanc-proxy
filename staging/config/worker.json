@@ -6,5 +6,6 @@
   "RemoteAccessAllowed": true,
   "AuthenticationEnabled": false,
   "DicomAlwaysAllowStore": true,
-  "DicomModalities": { "proxy": ["CLARINETPROXY", "proxy", 4242] }
+  "DicomModalities": { "proxy": ["CLARINETPROXY", "proxy", 4242] },
+  "DefaultEncoding": "Utf8"
 }
