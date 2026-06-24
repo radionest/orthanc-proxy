@@ -75,3 +75,30 @@ def test_resolve_destination_upstream_is_not_a_valid_worker():
 def test_resolve_destination_missing_target_raises():
     with pytest.raises(ValueError):
         proxy_core.resolve_destination("", "CLARINETPROXY", MODS, "pacs")
+
+
+def test_local_find_bodies_per_item_full_hierarchy():
+    uids = [{"StudyInstanceUID": "1.2", "SeriesInstanceUID": "1.2.9"}]
+    bodies = proxy_core.local_find_bodies("SERIES", uids)
+    assert bodies == [{
+        "Level": "Instance",
+        "Query": {"StudyInstanceUID": "1.2", "SeriesInstanceUID": "1.2.9"},
+        "Expand": True,
+    }]
+
+
+def test_count_query_bodies_instance_level():
+    uids = [{"StudyInstanceUID": "1.2"}, {"StudyInstanceUID": "1.3"}]
+    bodies = proxy_core.count_query_bodies("STUDY", uids)
+    assert bodies == [
+        {"Level": "Instance", "Query": {"StudyInstanceUID": "1.2"}},
+        {"Level": "Instance", "Query": {"StudyInstanceUID": "1.3"}},
+    ]
+
+
+def test_select_unforwarded_skips_forwarded():
+    assert proxy_core.select_unforwarded(["a", "b", "c"], {"a", "b"}) == "c"
+
+
+def test_select_unforwarded_none_left():
+    assert proxy_core.select_unforwarded(["a"], {"a"}) is None

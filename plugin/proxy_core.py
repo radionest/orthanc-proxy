@@ -68,3 +68,20 @@ def resolve_destination(target_aet, self_aet, modalities, upstream_alias):
     if alias is None or alias == upstream_alias:
         raise ValueError("unknown move destination AET %r" % target_aet)
     return ("forward", alias)
+
+
+def local_find_bodies(level, uids):
+    keys = LEVEL_KEYS[level]
+    return [{"Level": "Instance", "Query": {k: u[k] for k in keys}, "Expand": True} for u in uids]
+
+
+def count_query_bodies(level, uids):
+    keys = LEVEL_KEYS[level]
+    return [{"Level": "Instance", "Query": {k: u[k] for k in keys}} for u in uids]
+
+
+def select_unforwarded(found_ids, forwarded):
+    for oid in found_ids:
+        if oid not in forwarded:
+            return oid
+    return None
