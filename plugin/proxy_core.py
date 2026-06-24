@@ -24,6 +24,7 @@ def build_find_request(tags):
             level = value or "STUDY"
         else:
             query[name] = value
+    query["SpecificCharacterSet"] = ANSWER_CHARSET   # ask the PACS to answer in UTF-8 (Cyrillic-safe)
     return level, query
 
 

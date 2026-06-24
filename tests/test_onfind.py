@@ -26,7 +26,7 @@ def test_onfind_forwards_query_and_pins_charset():
 
     # forwarded the right query upstream
     posted = [b for (m, u, b) in fake.calls if u == "/modalities/pacs/query"][0]
-    assert json.loads(posted) == {"Level": "STUDY", "Query": {"PatientName": ""}}
+    assert json.loads(posted) == {"Level": "STUDY", "Query": {"PatientName": "", "SpecificCharacterSet": "ISO_IR 192"}}
     # answer carries pinned charset + Cyrillic intact
     assert json.loads(answers.added[0].decode("utf-8")) == {
         "PatientName": "Иванов", "SpecificCharacterSet": "ISO_IR 192"}

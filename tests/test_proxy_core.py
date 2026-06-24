@@ -14,13 +14,20 @@ def test_build_find_request_splits_level_from_query():
             ("StudyInstanceUID", "")]
     level, query = proxy_core.build_find_request(tags)
     assert level == "SERIES"
-    assert query == {"PatientID": "42", "StudyInstanceUID": ""}
+    assert query == {"PatientID": "42", "StudyInstanceUID": "", "SpecificCharacterSet": "ISO_IR 192"}
 
 
 def test_build_find_request_defaults_to_study():
     level, query = proxy_core.build_find_request([("PatientName", "")])
     assert level == "STUDY"
-    assert query == {"PatientName": ""}
+    assert query == {"PatientName": "", "SpecificCharacterSet": "ISO_IR 192"}
+
+
+def test_build_find_request_forces_utf8_charset():
+    # even if the downstream SCU asked for a different charset, force ISO_IR 192 upstream
+    level, query = proxy_core.build_find_request(
+        [("PatientName", ""), ("SpecificCharacterSet", "ISO_IR 100")])
+    assert query["SpecificCharacterSet"] == "ISO_IR 192"
 
 
 def test_pin_charset_forces_utf8_and_copies():
