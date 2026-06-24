@@ -20,5 +20,5 @@
   "Plugins": ["/usr/share/orthanc/plugins"],
   "PythonScript": "/opt/clarinet/clarinet_proxy.py",
   "PythonVerbose": true,
-  "DefaultEncoding": "Unicode"
+  "DefaultEncoding": "Utf8"
 }

@@ -27,7 +27,7 @@ def test_core_security_invariants():
     assert core["MaximumStorageMode"] == "Recycle"
     assert core["MaximumStorageCacheSize"] == 512
     assert core["StableAge"] == 20
-    assert core["DefaultEncoding"] == "Unicode"
+    assert core["DefaultEncoding"] == "Utf8"
 
     sec = load("20-security.json")
     assert sec["DicomCheckCalledAet"] is True
