@@ -1,10 +1,12 @@
+import os
 import time
 import requests
 import pytest
 
-PACS = "http://localhost:8101"
-PROXY = "http://localhost:8102"
-WORKER = "http://localhost:8103"
+# Defaults match the docker-compose harness; the LSB/VM harness overrides via env.
+PACS = os.environ.get("PACS_URL", "http://localhost:8101")
+PROXY = os.environ.get("PROXY_URL", "http://localhost:8102")
+WORKER = os.environ.get("WORKER_URL", "http://localhost:8103")
 
 
 def _ready(url):

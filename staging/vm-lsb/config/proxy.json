@@ -1,0 +1,26 @@
+{
+  "Name": "lsb-proxy",
+  "DicomAet": "CLARINETPROXY",
+  "DicomPort": 4252,
+  "HttpPort": 8052,
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": false,
+  "DefaultEncoding": "Utf8",
+  "StorageDirectory": "/var/lib/lsb-proxy",
+  "IndexDirectory": "/var/lib/lsb-proxy",
+  "DicomCheckCalledAet": true,
+  "DicomCheckModalityHost": false,
+  "DicomAlwaysAllowEcho": false,
+  "DicomAlwaysAllowStore": false,
+  "DicomAlwaysAllowFind": false,
+  "DicomAlwaysAllowMove": false,
+  "DicomAlwaysAllowGet": false,
+  "DicomModalities": {
+    "pacs":   { "AET": "HOSPITALPACS", "Host": "localhost", "Port": 4251, "AllowEcho": true, "AllowStore": true },
+    "worker": { "AET": "WORKER", "Host": "localhost", "Port": 4253, "AllowEcho": true, "AllowFind": true, "AllowMove": true, "AllowGet": true, "AllowStore": false }
+  },
+  "DicomWeb": { "Enable": true, "Root": "/dicom-web/", "PublicRoot": "/dicom-web/", "EnableWado": true },
+  "Plugins": ["/opt/orthanc/plugins"],
+  "PythonScript": "/opt/orthanc/plugins/clarinet_proxy.py",
+  "PythonVerbose": true
+}

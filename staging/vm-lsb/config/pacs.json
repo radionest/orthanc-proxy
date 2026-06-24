@@ -1,0 +1,16 @@
+{
+  "Name": "lsb-pacs",
+  "DicomAet": "HOSPITALPACS",
+  "DicomPort": 4251,
+  "HttpPort": 8051,
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": false,
+  "DefaultEncoding": "Utf8",
+  "StorageDirectory": "/var/lib/lsb-pacs",
+  "IndexDirectory": "/var/lib/lsb-pacs",
+  "DicomAlwaysAllowEcho": true,
+  "DicomAlwaysAllowFind": true,
+  "DicomAlwaysAllowMove": true,
+  "DicomAlwaysAllowStore": true,
+  "DicomModalities": { "proxy": ["CLARINETPROXY", "localhost", 4252] }
+}

@@ -1,0 +1,13 @@
+{
+  "Name": "lsb-worker",
+  "DicomAet": "WORKER",
+  "DicomPort": 4253,
+  "HttpPort": 8053,
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": false,
+  "DefaultEncoding": "Utf8",
+  "StorageDirectory": "/var/lib/lsb-worker",
+  "IndexDirectory": "/var/lib/lsb-worker",
+  "DicomAlwaysAllowStore": true,
+  "DicomModalities": { "proxy": ["CLARINETPROXY", "localhost", 4252] }
+}
