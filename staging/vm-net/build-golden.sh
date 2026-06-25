@@ -90,20 +90,30 @@ write_files:
       systemctl stop orthanc || true
       PYTHONPATH=/repo/staging/vm-net python3 /repo/staging/vm-net/gen_studies.py \\
         --out /var/lib/vmnet-studies --studies 3 --instances ${INSTANCES}
-      # import into the distro Orthanc store at /var/lib/orthanc/db
-      mkdir -p /var/lib/orthanc/db
+      # Import into a tmpfs-backed store first: Orthanc fsyncs SQLite per stored
+      # instance, which on nested virt is ~1s/instance against the qcow2 disk but
+      # near-instant against RAM. After the import, copy the finished store to the
+      # on-disk /var/lib/orthanc/db that the runtime config/pacs.json reads.
+      mkdir -p /var/lib/orthanc/db /var/lib/orthanc/db-ram
+      mount -t tmpfs -o size=1g tmpfs /var/lib/orthanc/db-ram
       cat > /etc/orthanc/orthanc.json <<'OC'
-      { "StorageDirectory": "/var/lib/orthanc/db", "IndexDirectory": "/var/lib/orthanc/db",
+      { "StorageDirectory": "/var/lib/orthanc/db-ram", "IndexDirectory": "/var/lib/orthanc/db-ram",
         "HttpPort": 8042, "DicomAet": "HOSPITALPACS", "RemoteAccessAllowed": true,
         "AuthenticationEnabled": false }
       OC
-      chown -R orthanc:orthanc /var/lib/orthanc/db || true
+      chown -R orthanc:orthanc /var/lib/orthanc/db-ram || true
       systemctl start orthanc; sleep 6
+      n=0
       for f in /var/lib/vmnet-studies/*.dcm; do
         curl -s -X POST http://localhost:8042/instances --data-binary @"\$f" >/dev/null
+        n=\$((n + 1))
+        [ \$((n % 500)) -eq 0 ] && echo "imported \$n instances"
       done
       curl -s http://localhost:8042/statistics
       systemctl stop orthanc; sleep 2
+      cp -a /var/lib/orthanc/db-ram/. /var/lib/orthanc/db/
+      umount /var/lib/orthanc/db-ram; rmdir /var/lib/orthanc/db-ram
+      chown -R orthanc:orthanc /var/lib/orthanc/db || true
       rm -rf /var/lib/vmnet-studies
       sync
 runcmd:
