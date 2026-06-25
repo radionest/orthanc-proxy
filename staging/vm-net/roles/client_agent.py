@@ -4,6 +4,7 @@ Driven entirely by env (see plan Task 4 interfaces). Records every observation
 via agent_core and writes RESULT_PATH; coordinates the concurrent phases through
 the 9p barrier dir. Runs on Python 3.7 inside the client golden VM."""
 
+import json
 import os
 import sys
 import threading
@@ -55,6 +56,30 @@ def _on_store(event):
     with _lock:
         ac.record_received(result, _current_phase["name"], str(ds.StudyInstanceUID), str(calling))
     return 0x0000
+
+
+def drain(phase, study, n, timeout=120):
+    """Wait until all n instances of `study` for `phase` have been recorded before the
+    caller switches phase, so a late sub-operation can never land in the next phase's bucket."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        with _lock:
+            if ac.received_count(result, phase, study) >= n:
+                return
+        time.sleep(0.5)
+
+
+def _qido_studies(study_uid):
+    """Return the QIDO study list for study_uid (empty list on any failure)."""
+    url = f"http://{PROXY_HOST}:{PROXY_REST}/dicom-web/studies?StudyInstanceUID={study_uid}"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as r:
+            if r.status != 200:
+                return []
+            data = json.loads(r.read())
+            return data if isinstance(data, list) else []
+    except Exception:
+        return []
 
 
 def start_scp():
@@ -140,24 +165,12 @@ def cstore_to_proxy():
         accepted = bool(st) and st.Status == 0x0000
         assoc.release()
         time.sleep(2)
-        url = f"http://{PROXY_HOST}:{PROXY_REST}/dicom-web/studies?StudyInstanceUID={ds.StudyInstanceUID}"
-        try:
-            with urllib.request.urlopen(url, timeout=10) as r:
-                body = r.read()
-                queryable = r.status == 200 and len(body) > 2
-        except Exception:
-            queryable = False
+        queryable = len(_qido_studies(ds.StudyInstanceUID)) > 0
     ac.record_event(result, "cstore_to_proxy", accepted=accepted, queryable=queryable)
 
 
 def qido_cached(study_uid):
-    url = f"http://{PROXY_HOST}:{PROXY_REST}/dicom-web/studies?StudyInstanceUID={study_uid}"
-    ok = False
-    try:
-        with urllib.request.urlopen(url, timeout=10) as r:
-            ok = r.status == 200 and len(r.read()) > 2
-    except Exception:
-        ok = False
+    ok = len(_qido_studies(study_uid)) > 0
     ac.record_event(result, "qido", study=study_uid, ok=ok)
 
 
@@ -197,6 +210,7 @@ def main():
             # S1 routing + S3 pass-through (cache warm after the move)
             _current_phase["name"] = "s1"
             cmove("s1", STUDY[1])
+            drain("s1", STUDY[1], INSTANCES)
             cfind_cyrillic(STUDY[1], study_plan.CYRILLIC_NAME)
             qido_cached(STUDY[1])
             cstore_to_proxy()
@@ -205,11 +219,13 @@ def main():
             ac.barrier_signal(BARRIER_DIR, "a_s4")
             ac.barrier_wait_all(BARRIER_DIR, ["a_s4", "b_s4"], timeout=1800)
             cmove("s4_diff", STUDY[2])
+            drain("s4_diff", STUDY[2], INSTANCES)
             # S5 same study (both = study1)
             _current_phase["name"] = "s5_same"
             ac.barrier_signal(BARRIER_DIR, "a_s5")
             ac.barrier_wait_all(BARRIER_DIR, ["a_s5", "b_s5"], timeout=1800)
             cmove("s5_same", STUDY[1])
+            drain("s5_same", STUDY[1], INSTANCES)
         else:  # clientb
             _current_phase["name"] = "s1"  # idle: SCP up, receives nothing
             time.sleep(1)
@@ -217,10 +233,12 @@ def main():
             ac.barrier_signal(BARRIER_DIR, "b_s4")
             ac.barrier_wait_all(BARRIER_DIR, ["a_s4", "b_s4"], timeout=1800)
             cmove("s4_diff", STUDY[3])
+            drain("s4_diff", STUDY[3], INSTANCES)
             _current_phase["name"] = "s5_same"
             ac.barrier_signal(BARRIER_DIR, "b_s5")
             ac.barrier_wait_all(BARRIER_DIR, ["a_s5", "b_s5"], timeout=1800)
             cmove("s5_same", STUDY[1])
+            drain("s5_same", STUDY[1], INSTANCES)
         time.sleep(5)  # let final sub-operations land on the SCP
     finally:
         ac.write_result(RESULT_PATH, result)

@@ -35,8 +35,10 @@ for _ in $(seq 1 720); do
   sleep 5
 done
 
-MOVES=$(curl -s http://localhost:8042/jobs?expand | python3 -c 'import sys,json; print(sum(1 for j in json.load(sys.stdin) if "move" in str(j.get("Type","")).lower()))' 2>/dev/null || echo 0)
-BEFORE=$(curl -s http://localhost:8042/statistics | python3 -c 'import sys,json;print(json.load(sys.stdin).get("CountStudies",0))')
+# raw jobs dump for triage — the move-count below is a heuristic on Orthanc's job Type strings
+curl -s http://localhost:8042/jobs?expand > /repo/staging/.data/vm-net/proxy-jobs.json 2>/dev/null || true
+MOVES=$(python3 -c 'import sys,json; print(sum(1 for j in json.load(sys.stdin) if "move" in str(j.get("Type","")).lower()))' < /repo/staging/.data/vm-net/proxy-jobs.json 2>/dev/null || echo 0)
+BEFORE=$(curl -s http://localhost:8042/statistics | python3 -c 'import sys,json;print(json.load(sys.stdin).get("CountStudies",0))' 2>/dev/null || echo 0)
 
 # (b) fill-WARN run: nothing expires (huge TTL), tiny cap -> fill >= WARN_FILL -> WARN logged
 PROXY_CORE_DIR=/opt/clarinet ORTHANC_URL=http://localhost:8042 \
@@ -49,7 +51,7 @@ sleep 2
 PROXY_CORE_DIR=/opt/clarinet ORTHANC_URL=http://localhost:8042 \
   TTL_SECONDS=1 MAX_STORAGE_MB=100000 \
   python3 /repo/deploy/evict.py > "$DATA/evict-ttl.log" 2>&1
-AFTER=$(curl -s http://localhost:8042/statistics | python3 -c 'import sys,json;print(json.load(sys.stdin).get("CountStudies",0))')
+AFTER=$(curl -s http://localhost:8042/statistics | python3 -c 'import sys,json;print(json.load(sys.stdin).get("CountStudies",0))' 2>/dev/null || echo 0)
 
 python3 - "$DATA/proxy.json" "$BEFORE" "$AFTER" "$WARN" "$MOVES" <<'PY'
 import json, sys

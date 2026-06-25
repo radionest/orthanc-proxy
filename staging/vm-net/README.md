@@ -43,7 +43,9 @@ Env: `WORK=<dir>` (default `/tmp/orthanc-proxy-vm-net`; put it on a **disk**, no
 - **S1** C-MOVE routing — clientA C-FIND→C-MOVE(`study1`) via the proxy; A receives all 1000
   instances, B receives none.
 - **S2** AET isolation — clientA's direct association to the PACS is rejected; a spoofed `GHOST`
-  AET to the proxy is rejected.
+  AET to the proxy is rejected. Isolation rests on every node setting `DicomAlwaysAllow*: false`
+  and registering only the AETs it may talk to: the PACS knows **only** the proxy, so it rejects an
+  unknown caller, and the proxy has no `GHOST` modality.
 - **S3** pass-through — Cyrillic C-FIND round-trips UTF-8; a client C-STORE to the proxy is cached
   and visible via QIDO; QIDO/WADO over the proxy REST work. (The proxy has **no** C-STORE→PACS
   forwarding — it caches; see the spec.)

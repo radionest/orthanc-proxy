@@ -1,7 +1,9 @@
 # tests/test_vmnet_assert.py
 import vmnet_assert as va
 
-STUDY1, STUDY2, STUDY3 = "1.2.826.0.1.3680043.8.498.1", "...2", "...3"
+STUDY1 = "1.2.826.0.1.3680043.8.498.1"
+STUDY2 = "1.2.826.0.1.3680043.8.498.2"
+STUDY3 = "1.2.826.0.1.3680043.8.498.3"
 
 
 def _client(role, received=None, events=None):

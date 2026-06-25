@@ -88,14 +88,14 @@ def check_s5(clienta, clientb, study, n):
     return fails  # proxy->PACS fetch count is recorded as an observation, not asserted
 
 
-def check_s6(proxy):
+def check_s6(proxy, min_studies=3):
     fails = []
-    if not (proxy.get("studies_before_evict", 0) > proxy.get("studies_after_evict", 0)):
-        fails.append(
-            "S6: TTL eviction did not reduce study count ({!r} -> {!r})".format(
-                proxy.get("studies_before_evict"), proxy.get("studies_after_evict")
-            )
-        )
+    before = proxy.get("studies_before_evict", 0)
+    after = proxy.get("studies_after_evict", 0)
+    if before < min_studies:
+        fails.append(f"S6: expected >={min_studies} studies cached before eviction, got {before}")
+    if not (before > after):
+        fails.append(f"S6: TTL eviction did not reduce study count ({before!r} -> {after!r})")
     if not proxy.get("fill_warn_logged"):
         fails.append("S6: storage-fill WARN was not logged")
     return fails
