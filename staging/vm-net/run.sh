@@ -27,7 +27,7 @@ PIDS=()
 cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; }
 trap cleanup EXIT
 
-HOSTS=$'10.0.0.10 pacs\n10.0.0.20 proxy\n10.0.0.31 clienta\n10.0.0.32 clientb'
+HOSTS='10.0.0.10 pacs\n10.0.0.20 proxy\n10.0.0.31 clienta\n10.0.0.32 clientb'
 
 # boot_node <name> <base-image> <ip> <lan_mac> <nat_mac> <mem> <run-script-body>
 boot_node() {
