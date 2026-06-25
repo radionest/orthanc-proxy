@@ -1,4 +1,12 @@
+import pytest
 import study_plan
+
+
+def test_rejects_invalid_sizes():
+    with pytest.raises(ValueError):
+        study_plan.build_study_plan(0, 10)
+    with pytest.raises(ValueError):
+        study_plan.build_study_plan(3, 0)
 
 
 def test_three_studies_each_at_least_1000_instances():

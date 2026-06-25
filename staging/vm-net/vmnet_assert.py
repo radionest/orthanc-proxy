@@ -30,12 +30,26 @@ def event(result, kind):
     return None
 
 
+def _barrier_ok(result, phase):
+    e = next(
+        (
+            x
+            for x in result.get("events", [])
+            if x.get("kind") == "barrier" and x.get("phase") == phase
+        ),
+        None,
+    )
+    return bool(e and e.get("ok"))
+
+
 def check_s1(clienta, clientb, study, n):
     fails = []
     if received_count(clienta, "s1", study) != n:
         fails.append(
             "S1: clientA got {} of {} for {}".format(received_count(clienta, "s1", study), n, study)
         )
+    if _studies_in(clienta, "s1") != {study}:
+        fails.append("S1: clientA cross-contaminated: {}".format(_studies_in(clienta, "s1")))
     if _studies_in(clientb, "s1"):
         fails.append(
             "S1: clientB received {} in s1 (expected nothing)".format(_studies_in(clientb, "s1"))
@@ -63,6 +77,9 @@ def check_s3(clienta):
     cs = event(clienta, "cstore_to_proxy")
     if cs is None or not (cs.get("accepted") and cs.get("queryable")):
         fails.append(f"S3: client C-STORE not accepted/queryable on proxy ({cs!r})")
+    w = event(clienta, "wado")
+    if w is None or not w.get("ok"):
+        fails.append(f"S3: WADO-RS retrieve failed ({w!r})")
     return fails
 
 
@@ -76,6 +93,8 @@ def check_s4(clienta, clientb, study_a, study_b, n):
         fails.append("S4: clientA cross-contaminated: {}".format(_studies_in(clienta, "s4_diff")))
     if _studies_in(clientb, "s4_diff") != {study_b}:
         fails.append("S4: clientB cross-contaminated: {}".format(_studies_in(clientb, "s4_diff")))
+    if not (_barrier_ok(clienta, "s4_diff") and _barrier_ok(clientb, "s4_diff")):
+        fails.append("S4: concurrency barrier did not synchronize both clients")
     return fails
 
 
@@ -85,6 +104,8 @@ def check_s5(clienta, clientb, study, n):
         fails.append(f"S5: clientA incomplete for shared {study}")
     if received_count(clientb, "s5_same", study) != n:
         fails.append(f"S5: clientB incomplete for shared {study}")
+    if not (_barrier_ok(clienta, "s5_same") and _barrier_ok(clientb, "s5_same")):
+        fails.append("S5: concurrency barrier did not synchronize both clients")
     return fails  # proxy->PACS fetch count is recorded as an observation, not asserted
 
 
@@ -98,4 +119,6 @@ def check_s6(proxy, min_studies=3):
         fails.append(f"S6: TTL eviction did not reduce study count ({before!r} -> {after!r})")
     if not proxy.get("fill_warn_logged"):
         fails.append("S6: storage-fill WARN was not logged")
+    if not proxy.get("clients_complete", True):
+        fails.append("S6: proxy's client-wait timed out — eviction ran on a partial cache")
     return fails

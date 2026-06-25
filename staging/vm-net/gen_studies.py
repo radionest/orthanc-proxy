@@ -4,6 +4,7 @@ Runs inside the PACS golden-image build, where pydicom is installed. Not importe
 by host unit tests. Output is one .dcm per instance under --out."""
 
 import argparse
+import glob
 import os
 
 import numpy as np
@@ -51,6 +52,10 @@ def main():
     ap.add_argument("--instances", type=int, default=1000)
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
+    for stale in glob.glob(os.path.join(args.out, "*.dcm")):
+        os.remove(
+            stale
+        )  # drop stale instances so a smaller --studies/--instances can't leave extras
     plan = study_plan.build_study_plan(args.studies, args.instances)
     n = 0
     for study in plan:

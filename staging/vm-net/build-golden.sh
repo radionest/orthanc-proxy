@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Build the two cached golden images for the vm-net harness. Run once (re-run to
-# rebuild, e.g. when gen_studies.py or the instance count changes). run.sh boots
-# fresh overlays over these; the proxy is NOT golden — it is rebuilt every run.
+# Build the two cached golden images for the vm-net harness. Idempotent: a re-run SKIPS any
+# golden that already exists. To rebuild (e.g. after changing gen_studies.py or the instance
+# count) set FORCE_REBUILD=pacs|client|all. run.sh boots fresh overlays over these; the proxy
+# is NOT golden — it is rebuilt every run.
 #
 #   pacs-golden.qcow2    Debian Buster + LSB Orthanc 1.12.11 (via deploy/install.sh), 3xN instances baked into /var/lib/orthanc/db
 #   client-golden.qcow2  Debian Buster + pydicom + pynetdicom (the SCU agent runtime)
@@ -38,11 +39,11 @@ fi
 build_one() {
   local name="$1" userdata_file="$2"
   local out="$WORK/$name-golden.qcow2" overlay="$WORK/$name-build.qcow2"
-  if [ -f "$out" ] && [ "${FORCE_REBUILD:-all}" != "all" ] && [ "${FORCE_REBUILD:-all}" != "$name" ]; then
+  if [ -f "$out" ] && [ "${FORCE_REBUILD:-}" != "all" ] && [ "${FORCE_REBUILD:-}" != "$name" ]; then
     echo "=== $name golden exists, skipping (FORCE_REBUILD=$name|all to rebuild) ==="; return 0
   fi
   echo "=== building $name golden ==="
-  rm -f "$overlay" "$out"
+  rm -f "$overlay" "$out.tmp"
   qemu-img create -f qcow2 -b "$BASE" -F qcow2 "$overlay" 20G >/dev/null
   cat > "$WORK/meta-data" <<EOF
 instance-id: $name-golden
@@ -63,11 +64,11 @@ EOF
   done
   wait "$qpid" 2>/dev/null || true
   if [ "$timed_out" = 1 ]; then
-    echo "golden $name FAILED (timeout) — overlay not flattened"
+    echo "golden $name FAILED (timeout) — keeping any previous $out"
     return 1
   fi
-  qemu-img convert -O qcow2 "$overlay" "$out"
-  echo "built $out"
+  qemu-img convert -O qcow2 "$overlay" "$out.tmp"
+  echo "built $out.tmp (pending promotion)"
 }
 
 # --- PACS golden user-data: install orthanc, generate + import studies, poweroff ---
@@ -153,18 +154,20 @@ EOF
 
 rm -f "$REPO/staging/.data/vm-net/pacs-golden-count.txt"
 build_one pacs "$WORK/ud-pacs"
-# Verify the PACS golden actually baked the studies (the bulk ZIP import is otherwise silent):
-# a wrong/empty count means a broken import — drop the bad golden and fail the build now,
-# rather than discovering it 60 minutes into an e2e run.
-if [ -f "$WORK/pacs-golden.qcow2" ]; then
+# Promote the freshly built PACS golden only after verifying the bulk ZIP import baked the
+# expected count (otherwise a broken import would silently ship). On mismatch, discard the
+# rebuild and keep any previous good golden, failing the build now rather than 60 min into a run.
+if [ -f "$WORK/pacs-golden.qcow2.tmp" ]; then
   want=$((3 * INSTANCES))
   got="$(cat "$REPO/staging/.data/vm-net/pacs-golden-count.txt" 2>/dev/null || echo 0)"
   if [ "$got" != "$want" ]; then
-    echo "FATAL: PACS golden baked $got instances, expected $want — removing bad golden"
-    rm -f "$WORK/pacs-golden.qcow2"
+    echo "FATAL: PACS golden baked $got instances, expected $want — discarding rebuild, keeping previous"
+    rm -f "$WORK/pacs-golden.qcow2.tmp"
     exit 1
   fi
+  mv -f "$WORK/pacs-golden.qcow2.tmp" "$WORK/pacs-golden.qcow2"
   echo "PACS golden import verified: $got instances"
 fi
 build_one client "$WORK/ud-client"
+[ -f "$WORK/client-golden.qcow2.tmp" ] && mv -f "$WORK/client-golden.qcow2.tmp" "$WORK/client-golden.qcow2"
 echo "goldens ready in $WORK"

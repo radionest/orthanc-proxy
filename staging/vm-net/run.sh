@@ -128,8 +128,14 @@ done
 echo "================ vm-net results ================"
 ls -1 "$DATA"/*.json 2>/dev/null || echo "(no result JSON produced)"
 if [ -f "$DATA/proxy-done" ]; then
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "FATAL: 'uv' not found on the host — it runs the pytest gate"; exit 1
+  fi
   VMNET_DATA="$DATA" INSTANCES_PER_STUDY="$INSTANCES" \
-    uv run --with pytest pytest --noconftest "$REPO/staging/vm-net/test_vm_net.py" -v || true
+    uv run --with pytest pytest --noconftest "$REPO/staging/vm-net/test_vm_net.py" -v
+  gate=$?
+  echo "host gate exit: $gate"
+  exit "$gate"
 else
   echo "run did NOT complete; inspect $DATA/*-console.log"; exit 1
 fi

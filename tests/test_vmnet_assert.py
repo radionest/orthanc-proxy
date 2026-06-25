@@ -5,6 +5,10 @@ STUDY1 = "1.2.826.0.1.3680043.8.498.1"
 STUDY2 = "1.2.826.0.1.3680043.8.498.2"
 STUDY3 = "1.2.826.0.1.3680043.8.498.3"
 
+BAR_S4 = {"kind": "barrier", "phase": "s4_diff", "ok": True}
+BAR_S5 = {"kind": "barrier", "phase": "s5_same", "ok": True}
+WADO_OK = {"kind": "wado", "study": STUDY1, "ok": True}
+
 
 def _client(role, received=None, events=None):
     return {"role": role, "aet": role.upper(), "received": received or {}, "events": events or []}
@@ -20,6 +24,20 @@ def test_s1_fails_when_b_also_received():
     a = _client("clienta", {"s1": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}})
     b = _client("clientb", {"s1": {STUDY1: {"count": 5, "from": "CLARINETPROXY"}}})
     assert va.check_s1(a, b, STUDY1, 1000)  # non-empty -> failure
+
+
+def test_s1_fails_when_a_gets_extra_study():
+    a = _client(
+        "clienta",
+        {
+            "s1": {
+                STUDY1: {"count": 1000, "from": "CLARINETPROXY"},
+                STUDY2: {"count": 7, "from": "CLARINETPROXY"},
+            }
+        },
+    )
+    b = _client("clientb", {"s1": {}})
+    assert va.check_s1(a, b, STUDY1, 1000)  # extra STUDY2 -> failure
 
 
 def test_s2_pass_when_both_probes_rejected():
@@ -44,21 +62,52 @@ def test_s2_fails_when_direct_pacs_accepted():
     assert va.check_s2(a)
 
 
-def test_s3_pass_on_cyrillic_and_qido_and_store():
+def test_s3_pass_on_cyrillic_qido_store_wado():
     a = _client(
         "clienta",
         events=[
             {"kind": "cfind_cyrillic", "name": "Иванов^Пётр", "ok": True},
             {"kind": "qido", "study": STUDY1, "ok": True},
             {"kind": "cstore_to_proxy", "accepted": True, "queryable": True},
+            WADO_OK,
         ],
     )
     assert va.check_s3(a) == []
 
 
+def test_s3_fails_when_cstore_not_queryable():
+    a = _client(
+        "clienta",
+        events=[
+            {"kind": "cfind_cyrillic", "name": "Иванов^Пётр", "ok": True},
+            {"kind": "qido", "study": STUDY1, "ok": True},
+            {"kind": "cstore_to_proxy", "accepted": True, "queryable": False},
+            WADO_OK,
+        ],
+    )
+    assert va.check_s3(a)
+
+
+def test_s3_fails_when_wado_fails():
+    a = _client(
+        "clienta",
+        events=[
+            {"kind": "cfind_cyrillic", "name": "Иванов^Пётр", "ok": True},
+            {"kind": "qido", "study": STUDY1, "ok": True},
+            {"kind": "cstore_to_proxy", "accepted": True, "queryable": True},
+            {"kind": "wado", "study": STUDY1, "ok": False},
+        ],
+    )
+    assert va.check_s3(a)
+
+
 def test_s4_pass_no_cross_contamination():
-    a = _client("clienta", {"s4_diff": {STUDY2: {"count": 1000, "from": "CLARINETPROXY"}}})
-    b = _client("clientb", {"s4_diff": {STUDY3: {"count": 1000, "from": "CLARINETPROXY"}}})
+    a = _client(
+        "clienta", {"s4_diff": {STUDY2: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S4]
+    )
+    b = _client(
+        "clientb", {"s4_diff": {STUDY3: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S4]
+    )
     assert va.check_s4(a, b, STUDY2, STUDY3, 1000) == []
 
 
@@ -71,32 +120,41 @@ def test_s4_fails_when_a_sees_b_study():
                 STUDY3: {"count": 3, "from": "CLARINETPROXY"},
             }
         },
+        [BAR_S4],
     )
-    b = _client("clientb", {"s4_diff": {STUDY3: {"count": 1000, "from": "CLARINETPROXY"}}})
+    b = _client(
+        "clientb", {"s4_diff": {STUDY3: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S4]
+    )
+    assert va.check_s4(a, b, STUDY2, STUDY3, 1000)
+
+
+def test_s4_fails_when_barrier_not_synced():
+    a = _client(
+        "clienta",
+        {"s4_diff": {STUDY2: {"count": 1000, "from": "CLARINETPROXY"}}},
+        [{"kind": "barrier", "phase": "s4_diff", "ok": False}],
+    )
+    b = _client(
+        "clientb", {"s4_diff": {STUDY3: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S4]
+    )
     assert va.check_s4(a, b, STUDY2, STUDY3, 1000)
 
 
 def test_s5_pass_when_both_get_full_study():
-    a = _client("clienta", {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}})
-    b = _client("clientb", {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}})
+    a = _client(
+        "clienta", {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S5]
+    )
+    b = _client(
+        "clientb", {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S5]
+    )
     assert va.check_s5(a, b, STUDY1, 1000) == []
 
 
-def test_s3_fails_when_cstore_not_queryable():
-    a = _client(
-        "clienta",
-        events=[
-            {"kind": "cfind_cyrillic", "name": "Иванов^Пётр", "ok": True},
-            {"kind": "qido", "study": STUDY1, "ok": True},
-            {"kind": "cstore_to_proxy", "accepted": True, "queryable": False},
-        ],
-    )
-    assert va.check_s3(a)
-
-
 def test_s5_fails_when_b_incomplete():
-    a = _client("clienta", {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}})
-    b = _client("clientb", {"s5_same": {STUDY1: {"count": 500, "from": "CLARINETPROXY"}}})
+    a = _client(
+        "clienta", {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S5]
+    )
+    b = _client("clientb", {"s5_same": {STUDY1: {"count": 500, "from": "CLARINETPROXY"}}}, [BAR_S5])
     assert va.check_s5(a, b, STUDY1, 1000)
 
 

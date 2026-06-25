@@ -23,6 +23,7 @@ mkdir -p /opt/clarinet
 cp /repo/plugin/clarinet_proxy.py /repo/plugin/proxy_core.py /opt/clarinet/
 mkdir -p /var/lib/orthanc-proxy
 
+[ -x /opt/orthanc/bin/Orthanc ] || { echo "FATAL: install.sh did not produce /opt/orthanc/bin/Orthanc"; exit 1; }
 /opt/orthanc/bin/Orthanc /repo/staging/vm-net/config/proxy.json \
   > "$DATA/proxy-orthanc.log" 2>&1 &
 ORTHANC_PID=$!
@@ -30,10 +31,14 @@ sleep 8
 echo "--- proxy /plugins ---"; curl -s http://localhost:8042/plugins; echo
 
 # wait until both clients signalled completion (max ~60 min: slow nested-virt transfers)
+CLIENTS_DONE=0
 for _ in $(seq 1 720); do
-  [ -f "$BARRIER/ready_clienta_phases_done" ] && [ -f "$BARRIER/ready_clientb_phases_done" ] && break
+  if [ -f "$BARRIER/ready_clienta_phases_done" ] && [ -f "$BARRIER/ready_clientb_phases_done" ]; then
+    CLIENTS_DONE=1; break
+  fi
   sleep 5
 done
+[ "$CLIENTS_DONE" = 1 ] || echo "WARN: client-wait timed out — eviction runs on a partial cache"
 
 # raw jobs dump for triage — the move-count below is a heuristic on Orthanc's job Type strings
 curl -s http://localhost:8042/jobs?expand > /repo/staging/.data/vm-net/proxy-jobs.json 2>/dev/null || true
@@ -53,15 +58,16 @@ PROXY_CORE_DIR=/opt/clarinet ORTHANC_URL=http://localhost:8042 \
   python3 /repo/deploy/evict.py > "$DATA/evict-ttl.log" 2>&1
 AFTER=$(curl -s http://localhost:8042/statistics | python3 -c 'import sys,json;print(json.load(sys.stdin).get("CountStudies",0))' 2>/dev/null || echo 0)
 
-python3 - "$DATA/proxy.json" "$BEFORE" "$AFTER" "$WARN" "$MOVES" <<'PY'
+python3 - "$DATA/proxy.json" "$BEFORE" "$AFTER" "$WARN" "$MOVES" "$CLIENTS_DONE" <<'PY'
 import json, sys
-path, before, after, warn, pacs_moves = sys.argv[1:6]
+path, before, after, warn, pacs_moves, clients_done = sys.argv[1:7]
 json.dump({
     "role": "proxy",
     "studies_before_evict": int(before),
     "studies_after_evict": int(after),
     "fill_warn_logged": int(warn) > 0,
     "pacs_move_jobs_observed": int(pacs_moves),
+    "clients_complete": clients_done == "1",
 }, open(path, "w", encoding="utf-8"), ensure_ascii=False)
 PY
 

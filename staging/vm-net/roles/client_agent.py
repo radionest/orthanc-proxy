@@ -69,17 +69,39 @@ def drain(phase, study, n, timeout=120):
         time.sleep(0.5)
 
 
-def _qido_studies(study_uid):
-    """Return the QIDO study list for study_uid (empty list on any failure)."""
+def _qido_studies(study_uid, retries=5):
+    """Return the QIDO study list for study_uid (empty list on failure). Retries because
+    DICOMweb visibility can lag a successful C-STORE/C-MOVE by a couple of seconds."""
     url = f"http://{PROXY_HOST}:{PROXY_REST}/dicom-web/studies?StudyInstanceUID={study_uid}"
-    try:
-        with urllib.request.urlopen(url, timeout=10) as r:
-            if r.status != 200:
-                return []
-            data = json.loads(r.read())
-            return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    for _ in range(retries):
+        try:
+            with urllib.request.urlopen(url, timeout=10) as r:
+                if r.status == 200:
+                    data = json.loads(r.read())
+                    if isinstance(data, list) and data:
+                        return data
+        except Exception:
+            pass
+        time.sleep(1)
+    return []
+
+
+def wado_cached(study_uid):
+    """WADO-RS retrieve of the study metadata through the proxy (the WADO half of S3)."""
+    url = f"http://{PROXY_HOST}:{PROXY_REST}/dicom-web/studies/{study_uid}/metadata"
+    ok = False
+    for _ in range(5):
+        try:
+            with urllib.request.urlopen(url, timeout=15) as r:
+                if r.status == 200:
+                    data = json.loads(r.read())
+                    ok = isinstance(data, list) and len(data) > 0
+        except Exception:
+            ok = False
+        if ok:
+            break
+        time.sleep(1)
+    ac.record_event(result, "wado", study=study_uid, ok=ok)
 
 
 def start_scp():
@@ -199,6 +221,15 @@ def wait_ready(url, timeout):
     return False
 
 
+def barrier(phase, mine, names):
+    """Signal `mine`, wait for all `names`, and record whether the rendezvous succeeded.
+    A timeout means the concurrent phase ran non-concurrently — recorded for the host gate."""
+    ac.barrier_signal(BARRIER_DIR, mine)
+    ok = ac.barrier_wait_all(BARRIER_DIR, names, timeout=1800)
+    ac.record_event(result, "barrier", phase=phase, ok=ok)
+    return ok
+
+
 def main():
     server = start_scp()
     try:
@@ -213,30 +244,27 @@ def main():
             drain("s1", STUDY[1], INSTANCES)
             cfind_cyrillic(STUDY[1], study_plan.CYRILLIC_NAME)
             qido_cached(STUDY[1])
+            wado_cached(STUDY[1])
             cstore_to_proxy()
             # S4 different studies (A=study2)
             _current_phase["name"] = "s4_diff"
-            ac.barrier_signal(BARRIER_DIR, "a_s4")
-            ac.barrier_wait_all(BARRIER_DIR, ["a_s4", "b_s4"], timeout=1800)
+            barrier("s4_diff", "a_s4", ["a_s4", "b_s4"])
             cmove("s4_diff", STUDY[2])
             drain("s4_diff", STUDY[2], INSTANCES)
             # S5 same study (both = study1)
             _current_phase["name"] = "s5_same"
-            ac.barrier_signal(BARRIER_DIR, "a_s5")
-            ac.barrier_wait_all(BARRIER_DIR, ["a_s5", "b_s5"], timeout=1800)
+            barrier("s5_same", "a_s5", ["a_s5", "b_s5"])
             cmove("s5_same", STUDY[1])
             drain("s5_same", STUDY[1], INSTANCES)
         else:  # clientb
             _current_phase["name"] = "s1"  # idle: SCP up, receives nothing
             time.sleep(1)
             _current_phase["name"] = "s4_diff"
-            ac.barrier_signal(BARRIER_DIR, "b_s4")
-            ac.barrier_wait_all(BARRIER_DIR, ["a_s4", "b_s4"], timeout=1800)
+            barrier("s4_diff", "b_s4", ["a_s4", "b_s4"])
             cmove("s4_diff", STUDY[3])
             drain("s4_diff", STUDY[3], INSTANCES)
             _current_phase["name"] = "s5_same"
-            ac.barrier_signal(BARRIER_DIR, "b_s5")
-            ac.barrier_wait_all(BARRIER_DIR, ["a_s5", "b_s5"], timeout=1800)
+            barrier("s5_same", "b_s5", ["a_s5", "b_s5"])
             cmove("s5_same", STUDY[1])
             drain("s5_same", STUDY[1], INSTANCES)
         time.sleep(5)  # let final sub-operations land on the SCP
