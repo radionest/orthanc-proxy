@@ -108,13 +108,13 @@ write_files:
       /opt/orthanc/bin/Orthanc /root/build-pacs.json > /var/log/orthanc-build.log 2>&1 &
       OPID=\$!
       sleep 6
-      n=0
-      for f in /var/lib/vmnet-studies/*.dcm; do
-        curl -s -X POST http://localhost:8042/instances --data-binary @"\$f" >/dev/null
-        n=\$((n + 1))
-        [ \$((n % 500)) -eq 0 ] && echo "imported \$n instances"
-      done
-      curl -s http://localhost:8042/statistics
+      # Bulk import: Orthanc's POST /instances accepts a ZIP archive and imports every
+      # DICOM inside it in ONE request — far cheaper than one POST per instance. Use
+      # 127.0.0.1 (not localhost) to skip a per-request IPv6->IPv4 fallback delay.
+      python3 -c "import zipfile, glob, os; z = zipfile.ZipFile('/tmp/studies.zip', 'w', zipfile.ZIP_STORED); [z.write(f, os.path.basename(f)) for f in glob.glob('/var/lib/vmnet-studies/*.dcm')]; z.close()"
+      curl -s -X POST http://127.0.0.1:8042/instances --data-binary @/tmp/studies.zip > /tmp/import.json
+      rm -f /tmp/studies.zip
+      curl -s http://127.0.0.1:8042/statistics
       kill \$OPID 2>/dev/null || true; sleep 2
       cp -a /var/lib/orthanc/db-ram/. /var/lib/orthanc/db/
       umount /var/lib/orthanc/db-ram; rmdir /var/lib/orthanc/db-ram
