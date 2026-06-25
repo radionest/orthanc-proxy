@@ -38,6 +38,9 @@ fi
 build_one() {
   local name="$1" userdata_file="$2"
   local out="$WORK/$name-golden.qcow2" overlay="$WORK/$name-build.qcow2"
+  if [ -f "$out" ] && [ "${FORCE_REBUILD:-all}" != "all" ] && [ "${FORCE_REBUILD:-all}" != "$name" ]; then
+    echo "=== $name golden exists, skipping (FORCE_REBUILD=$name|all to rebuild) ==="; return 0
+  fi
   echo "=== building $name golden ==="
   rm -f "$overlay" "$out"
   qemu-img create -f qcow2 -b "$BASE" -F qcow2 "$overlay" 20G >/dev/null
@@ -85,24 +88,26 @@ write_files:
       SRC
       apt-get -o Acquire::Check-Valid-Until=false update
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \\
-        orthanc python3-pip python3-numpy curl
+        python3-pip python3-numpy curl ca-certificates
       python3 -m pip install "pydicom==2.4.4"
-      systemctl stop orthanc || true
+      # Distro Buster Orthanc (1.5.x) segfaults in libdcmnet on association; use the same
+      # stable LSB Orthanc 1.12.11 as the proxy. PACS loads no plugins (pacs.json has no Plugins).
+      DEST=/opt/orthanc bash /repo/deploy/install.sh
       PYTHONPATH=/repo/staging/vm-net python3 /repo/staging/vm-net/gen_studies.py \\
         --out /var/lib/vmnet-studies --studies 3 --instances ${INSTANCES}
-      # Import into a tmpfs-backed store first: Orthanc fsyncs SQLite per stored
-      # instance, which on nested virt is ~1s/instance against the qcow2 disk but
-      # near-instant against RAM. After the import, copy the finished store to the
+      # Import into a tmpfs-backed store first (Orthanc fsyncs SQLite per stored instance,
+      # ~1s each on the qcow2 disk under nested virt), then copy the finished store to the
       # on-disk /var/lib/orthanc/db that the runtime config/pacs.json reads.
       mkdir -p /var/lib/orthanc/db /var/lib/orthanc/db-ram
       mount -t tmpfs -o size=1g tmpfs /var/lib/orthanc/db-ram
-      cat > /etc/orthanc/orthanc.json <<'OC'
+      cat > /root/build-pacs.json <<'OC'
       { "StorageDirectory": "/var/lib/orthanc/db-ram", "IndexDirectory": "/var/lib/orthanc/db-ram",
         "HttpPort": 8042, "DicomAet": "HOSPITALPACS", "RemoteAccessAllowed": true,
         "AuthenticationEnabled": false }
       OC
-      chown -R orthanc:orthanc /var/lib/orthanc/db-ram || true
-      systemctl start orthanc; sleep 6
+      /opt/orthanc/bin/Orthanc /root/build-pacs.json > /var/log/orthanc-build.log 2>&1 &
+      OPID=\$!
+      sleep 6
       n=0
       for f in /var/lib/vmnet-studies/*.dcm; do
         curl -s -X POST http://localhost:8042/instances --data-binary @"\$f" >/dev/null
@@ -110,10 +115,9 @@ write_files:
         [ \$((n % 500)) -eq 0 ] && echo "imported \$n instances"
       done
       curl -s http://localhost:8042/statistics
-      systemctl stop orthanc; sleep 2
+      kill \$OPID 2>/dev/null || true; sleep 2
       cp -a /var/lib/orthanc/db-ram/. /var/lib/orthanc/db/
       umount /var/lib/orthanc/db-ram; rmdir /var/lib/orthanc/db-ram
-      chown -R orthanc:orthanc /var/lib/orthanc/db || true
       rm -rf /var/lib/vmnet-studies
       sync
 runcmd:

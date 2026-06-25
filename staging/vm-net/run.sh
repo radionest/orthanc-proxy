@@ -91,11 +91,12 @@ boot_node pacs "$WORK/pacs-golden.qcow2" 10.0.0.10 "$PACS_LAN_MAC" "$PACS_NAT_MA
 "#!/bin/bash
 set -x
 $MNT
-systemctl stop orthanc || true
-/usr/sbin/Orthanc /repo/staging/vm-net/config/pacs.json > /repo/staging/.data/vm-net/pacs-orthanc.log 2>&1 &
+/opt/orthanc/bin/Orthanc /repo/staging/vm-net/config/pacs.json > /repo/staging/.data/vm-net/pacs-orthanc.log 2>&1 &
+OPID=\$!
 sleep 6
 curl -s http://localhost:8042/statistics > /repo/staging/.data/vm-net/pacs-stats.json
-touch /repo/staging/.data/vm-net/pacs-done"
+touch /repo/staging/.data/vm-net/pacs-done
+wait \$OPID"
 
 # --- proxy: rebuild the real LSB artifact, then drive evict (separate provisioning script) ---
 boot_node proxy "$BUSTER" 10.0.0.20 "$PROXY_LAN_MAC" "$PROXY_NAT_MAC" 4096 \
