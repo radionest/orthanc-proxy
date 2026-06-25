@@ -21,7 +21,7 @@ def results():
     r = va.load_results(DATA)
     for need in ("clienta", "clientb", "proxy"):
         if need not in r:
-            pytest.fail("missing %s.json in %s (collected: %s)" % (need, DATA, sorted(r)))
+            pytest.fail(f"missing {need}.json in {DATA} (collected: {sorted(r)})")
     return r
 
 
