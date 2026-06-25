@@ -80,6 +80,24 @@ def test_s5_pass_when_both_get_full_study():
     assert va.check_s5(a, b, STUDY1, 1000) == []
 
 
+def test_s3_fails_when_cstore_not_queryable():
+    a = _client(
+        "clienta",
+        events=[
+            {"kind": "cfind_cyrillic", "name": "Иванов^Пётр", "ok": True},
+            {"kind": "qido", "study": STUDY1, "ok": True},
+            {"kind": "cstore_to_proxy", "accepted": True, "queryable": False},
+        ],
+    )
+    assert va.check_s3(a)
+
+
+def test_s5_fails_when_b_incomplete():
+    a = _client("clienta", {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}})
+    b = _client("clientb", {"s5_same": {STUDY1: {"count": 500, "from": "CLARINETPROXY"}}})
+    assert va.check_s5(a, b, STUDY1, 1000)
+
+
 def test_s6_pass_on_ttl_delete_and_warn():
     proxy = {
         "role": "proxy",
