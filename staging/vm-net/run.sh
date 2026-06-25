@@ -50,6 +50,14 @@ ethernets:
     match: { macaddress: "$lanmac" }
     addresses: [ $ip/24 ]
 EOF
+  # Robust per-NIC setup by MAC, run at the top of role.sh: cloud-init's v2 network
+  # config does not render on Buster, and the golden images carry a stale
+  # /etc/network/interfaces that leaves the LAN NIC without its IPv4. Assign the LAN
+  # static IP and DHCP the NAT NIC directly from /sys/class/net.
+  local netup="for _a in /sys/class/net/*/address; do _m=\$(cat \"\$_a\"); _i=\$(basename \"\$(dirname \"\$_a\")\"); [ \"\$_i\" = lo ] && continue; if [ \"\$_m\" = \"$lanmac\" ]; then ip link set \"\$_i\" up; ip addr add $ip/24 dev \"\$_i\" 2>/dev/null; fi; if [ \"\$_m\" = \"$natmac\" ]; then ip link set \"\$_i\" up; dhclient \"\$_i\" 2>/dev/null & fi; done; sleep 3"
+  local role="#!/bin/bash
+$netup
+${body#\#!/bin/bash}"
   { echo "#cloud-config"
     echo "bootcmd:"
     echo "  - [ sh, -c, 'printf \"%b\\n\" \"$HOSTS\" >> /etc/hosts' ]"
@@ -57,7 +65,7 @@ EOF
     echo "  - path: /root/role.sh"
     echo "    permissions: '0755'"
     echo "    content: |"
-    printf '%s\n' "$body" | sed 's/^/      /'
+    printf '%s\n' "$role" | sed 's/^/      /'
     echo "runcmd:"
     echo "  - [ bash, /root/role.sh ]"
   } > "$WORK/ud-$name"
