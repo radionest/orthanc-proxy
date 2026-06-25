@@ -171,9 +171,25 @@ def probe_rejected(host, port, called_aet, calling_aet, kind):
     ac.record_event(result, kind, rejected=rejected)
 
 
+def wait_ready(url, timeout):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                if r.status == 200:
+                    ac.record_event(result, "proxy_ready", waited=True)
+                    return True
+        except Exception:
+            pass
+        time.sleep(5)
+    ac.record_event(result, "proxy_ready", waited=False)
+    return False
+
+
 def main():
     server = start_scp()
     try:
+        wait_ready(f"http://{PROXY_HOST}:{PROXY_REST}/system", 2400)
         if ROLE == "clienta":
             # S2 negative
             probe_rejected(PACS_HOST, PACS_DICOM, PACS_AET, SELF_AET, "direct_pacs_probe")
@@ -187,23 +203,23 @@ def main():
             # S4 different studies (A=study2)
             _current_phase["name"] = "s4_diff"
             ac.barrier_signal(BARRIER_DIR, "a_s4")
-            ac.barrier_wait_all(BARRIER_DIR, ["a_s4", "b_s4"], timeout=180)
+            ac.barrier_wait_all(BARRIER_DIR, ["a_s4", "b_s4"], timeout=1800)
             cmove("s4_diff", STUDY[2])
             # S5 same study (both = study1)
             _current_phase["name"] = "s5_same"
             ac.barrier_signal(BARRIER_DIR, "a_s5")
-            ac.barrier_wait_all(BARRIER_DIR, ["a_s5", "b_s5"], timeout=180)
+            ac.barrier_wait_all(BARRIER_DIR, ["a_s5", "b_s5"], timeout=1800)
             cmove("s5_same", STUDY[1])
         else:  # clientb
             _current_phase["name"] = "s1"  # idle: SCP up, receives nothing
             time.sleep(1)
             _current_phase["name"] = "s4_diff"
             ac.barrier_signal(BARRIER_DIR, "b_s4")
-            ac.barrier_wait_all(BARRIER_DIR, ["a_s4", "b_s4"], timeout=180)
+            ac.barrier_wait_all(BARRIER_DIR, ["a_s4", "b_s4"], timeout=1800)
             cmove("s4_diff", STUDY[3])
             _current_phase["name"] = "s5_same"
             ac.barrier_signal(BARRIER_DIR, "b_s5")
-            ac.barrier_wait_all(BARRIER_DIR, ["a_s5", "b_s5"], timeout=180)
+            ac.barrier_wait_all(BARRIER_DIR, ["a_s5", "b_s5"], timeout=1800)
             cmove("s5_same", STUDY[1])
         time.sleep(5)  # let final sub-operations land on the SCP
     finally:

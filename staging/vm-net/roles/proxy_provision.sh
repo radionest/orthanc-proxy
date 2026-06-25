@@ -29,8 +29,8 @@ ORTHANC_PID=$!
 sleep 8
 echo "--- proxy /plugins ---"; curl -s http://localhost:8042/plugins; echo
 
-# wait until both clients signalled completion (max ~10 min)
-for _ in $(seq 1 120); do
+# wait until both clients signalled completion (max ~60 min: slow nested-virt transfers)
+for _ in $(seq 1 720); do
   [ -f "$BARRIER/ready_clienta_phases_done" ] && [ -f "$BARRIER/ready_clientb_phases_done" ] && break
   sleep 5
 done
