@@ -15,7 +15,7 @@
   "StorageDirectory": "/var/lib/orthanc/db",
   "IndexDirectory": "/var/lib/orthanc/db",
   "DicomModalities": {
-    "proxy": { "AET": "CLARINETPROXY", "Host": "proxy", "Port": 4242, "AllowEcho": true, "AllowFind": true, "AllowMove": true, "AllowStore": true }
+    "proxy": { "AET": "CLARINETPROXY", "Host": "10.0.0.20", "Port": 4242, "AllowEcho": true, "AllowFind": true, "AllowMove": true, "AllowStore": true }
   },
   "DefaultEncoding": "Utf8"
 }

@@ -13,9 +13,9 @@
   "DicomAlwaysAllowMove": false,
   "DicomAlwaysAllowGet": false,
   "DicomModalities": {
-    "pacs":    { "AET": "HOSPITALPACS", "Host": "pacs",    "Port": 4242, "AllowEcho": true, "AllowFind": true, "AllowMove": true, "AllowStore": true },
-    "clienta": { "AET": "CLIENTA",      "Host": "clienta", "Port": 11112, "AllowEcho": true, "AllowStore": true },
-    "clientb": { "AET": "CLIENTB",      "Host": "clientb", "Port": 11112, "AllowEcho": true, "AllowStore": true }
+    "pacs":    { "AET": "HOSPITALPACS", "Host": "10.0.0.10", "Port": 4242, "AllowEcho": true, "AllowFind": true, "AllowMove": true, "AllowStore": true },
+    "clienta": { "AET": "CLIENTA",      "Host": "10.0.0.31", "Port": 11112, "AllowEcho": true, "AllowStore": true },
+    "clientb": { "AET": "CLIENTB",      "Host": "10.0.0.32", "Port": 11112, "AllowEcho": true, "AllowStore": true }
   },
   "DicomWeb": { "Enable": true, "Root": "/dicom-web/", "PublicRoot": "/dicom-web/", "EnableWado": true },
   "Plugins": ["/opt/orthanc/plugins"],
