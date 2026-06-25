@@ -3,7 +3,7 @@
 # rebuild, e.g. when gen_studies.py or the instance count changes). run.sh boots
 # fresh overlays over these; the proxy is NOT golden — it is rebuilt every run.
 #
-#   pacs-golden.qcow2    Debian Buster + orthanc + python3-pydicom, 3x1000 instances baked into /var/lib/orthanc/db
+#   pacs-golden.qcow2    Debian Buster + LSB Orthanc 1.12.11 (via deploy/install.sh), 3xN instances baked into /var/lib/orthanc/db
 #   client-golden.qcow2  Debian Buster + pydicom + pynetdicom (the SCU agent runtime)
 #
 # Usage: bash staging/vm-net/build-golden.sh [--check]
@@ -115,6 +115,9 @@ write_files:
       curl -s -X POST http://127.0.0.1:8042/instances --data-binary @/tmp/studies.zip > /tmp/import.json
       rm -f /tmp/studies.zip
       curl -s http://127.0.0.1:8042/statistics
+      # record the baked instance count where the host build script can verify it
+      mkdir -p /repo/staging/.data/vm-net
+      curl -s http://127.0.0.1:8042/statistics | python3 -c "import sys, json; print(json.load(sys.stdin).get('CountInstances', 0))" > /repo/staging/.data/vm-net/pacs-golden-count.txt
       kill \$OPID 2>/dev/null || true; sleep 2
       cp -a /var/lib/orthanc/db-ram/. /var/lib/orthanc/db/
       umount /var/lib/orthanc/db-ram; rmdir /var/lib/orthanc/db-ram
@@ -148,6 +151,20 @@ runcmd:
 power_state: { mode: poweroff, timeout: 60, condition: true }
 EOF
 
+rm -f "$REPO/staging/.data/vm-net/pacs-golden-count.txt"
 build_one pacs "$WORK/ud-pacs"
+# Verify the PACS golden actually baked the studies (the bulk ZIP import is otherwise silent):
+# a wrong/empty count means a broken import — drop the bad golden and fail the build now,
+# rather than discovering it 60 minutes into an e2e run.
+if [ -f "$WORK/pacs-golden.qcow2" ]; then
+  want=$((3 * INSTANCES))
+  got="$(cat "$REPO/staging/.data/vm-net/pacs-golden-count.txt" 2>/dev/null || echo 0)"
+  if [ "$got" != "$want" ]; then
+    echo "FATAL: PACS golden baked $got instances, expected $want — removing bad golden"
+    rm -f "$WORK/pacs-golden.qcow2"
+    exit 1
+  fi
+  echo "PACS golden import verified: $got instances"
+fi
 build_one client "$WORK/ud-client"
 echo "goldens ready in $WORK"
