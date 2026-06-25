@@ -1,0 +1,10 @@
+# Lint + format config for clarinet-pacs-proxy.
+#
+# target-version is the DEPLOY runtime: the Orthanc embedded Python on the proxy
+# host (Astra Linux SE / Debian Buster base) is 3.7. The dev venv runs a newer
+# Python, but every autofix must stay 3.7-safe — so pin py37 here, not the venv.
+target-version = "py37"
+line-length = 100
+
+[lint]
+select = ["E", "F", "W", "B", "I", "UP", "SIM", "C4"]

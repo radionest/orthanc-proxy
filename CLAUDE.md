@@ -17,6 +17,8 @@ Full design: `docs/superpowers/specs/2026-06-24-clarinet-pacs-proxy-design.md`
   sets `pythonpath = plugin tests deploy`, so imports only resolve under it.
 - `bash staging/vm/run.sh` — end-to-end suite. The host has no Docker; this brings
   the DICOM network up inside a throwaway QEMU/KVM VM (`staging/vm/README.md`).
+- `uvx ruff check .` / `uvx ruff format .` — lint + format. `ruff.toml` targets
+  Python 3.7 (the deploy runtime), so autofixes stay runnable on the proxy host.
 
 ## Gotchas
 
