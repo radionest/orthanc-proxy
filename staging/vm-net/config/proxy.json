@@ -18,7 +18,7 @@
     "clientb": { "AET": "CLIENTB",      "Host": "clientb", "Port": 11112, "AllowEcho": true, "AllowStore": true }
   },
   "DicomWeb": { "Enable": true, "Root": "/dicom-web/", "PublicRoot": "/dicom-web/", "EnableWado": true },
-  "Plugins": ["/usr/share/orthanc/plugins"],
+  "Plugins": ["/opt/orthanc/plugins"],
   "PythonScript": "/opt/clarinet/clarinet_proxy.py",
   "PythonVerbose": true,
   "DefaultEncoding": "Utf8"
