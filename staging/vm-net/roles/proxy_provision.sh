@@ -35,6 +35,7 @@ for _ in $(seq 1 120); do
   sleep 5
 done
 
+MOVES=$(curl -s http://localhost:8042/jobs?expand | python3 -c 'import sys,json; print(sum(1 for j in json.load(sys.stdin) if "move" in str(j.get("Type","")).lower()))' 2>/dev/null || echo 0)
 BEFORE=$(curl -s http://localhost:8042/statistics | python3 -c 'import sys,json;print(json.load(sys.stdin).get("CountStudies",0))')
 
 # (b) fill-WARN run: nothing expires (huge TTL), tiny cap -> fill >= WARN_FILL -> WARN logged
@@ -50,22 +51,15 @@ PROXY_CORE_DIR=/opt/clarinet ORTHANC_URL=http://localhost:8042 \
   python3 /repo/deploy/evict.py > "$DATA/evict-ttl.log" 2>&1
 AFTER=$(curl -s http://localhost:8042/statistics | python3 -c 'import sys,json;print(json.load(sys.stdin).get("CountStudies",0))')
 
-python3 - "$DATA/proxy.json" "$BEFORE" "$AFTER" "$WARN" <<'PY'
+python3 - "$DATA/proxy.json" "$BEFORE" "$AFTER" "$WARN" "$MOVES" <<'PY'
 import json, sys
-path, before, after, warn = sys.argv[1:5]
-# pacs C-MOVE association count for study1, parsed from Orthanc's own log
-pacs_moves = 0
-try:
-    with open("/repo/staging/.data/vm-net/proxy-orthanc.log", encoding="utf-8", errors="ignore") as f:
-        pacs_moves = sum(1 for ln in f if "/modalities/pacs/move" in ln)
-except OSError:
-    pass
+path, before, after, warn, pacs_moves = sys.argv[1:6]
 json.dump({
     "role": "proxy",
     "studies_before_evict": int(before),
     "studies_after_evict": int(after),
     "fill_warn_logged": int(warn) > 0,
-    "pacs_move_jobs_observed": pacs_moves,
+    "pacs_move_jobs_observed": int(pacs_moves),
 }, open(path, "w", encoding="utf-8"), ensure_ascii=False)
 PY
 

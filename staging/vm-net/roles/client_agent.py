@@ -143,7 +143,8 @@ def cstore_to_proxy():
         url = f"http://{PROXY_HOST}:{PROXY_REST}/dicom-web/studies?StudyInstanceUID={ds.StudyInstanceUID}"
         try:
             with urllib.request.urlopen(url, timeout=10) as r:
-                queryable = b"00080020" in r.read() or r.status == 200
+                body = r.read()
+                queryable = r.status == 200 and len(body) > 2
         except Exception:
             queryable = False
     ac.record_event(result, "cstore_to_proxy", accepted=accepted, queryable=queryable)
