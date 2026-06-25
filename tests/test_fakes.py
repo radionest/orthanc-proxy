@@ -1,5 +1,6 @@
 import json
-from fakes import FakeOrthanc, FakeQuery, FakeAnswers
+
+from fakes import FakeAnswers, FakeOrthanc, FakeQuery
 
 
 def test_fake_routes_and_records():

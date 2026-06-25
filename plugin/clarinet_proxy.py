@@ -1,8 +1,8 @@
 """Orthanc entry point: replaces the C-FIND/C-MOVE SCP with a pass-through to the hospital PACS."""
 
+import json
 import os
 import sys
-import json
 import time
 
 import orthanc
@@ -12,7 +12,7 @@ import proxy_core as core
 
 SELF_AET = core.SELF_AET
 UPSTREAM = core.UPSTREAM
-ARRIVAL_TIMEOUT = 600.0   # seconds to wait for the upstream pull to deliver all instances
+ARRIVAL_TIMEOUT = 600.0  # seconds to wait for the upstream pull to deliver all instances
 POLL_INTERVAL = 1.0
 
 
@@ -25,18 +25,21 @@ def _post(uri, body):
 
 
 def OnFind(answers, query, issuerAet, calledAet):
-    tags = [(query.GetFindQueryTagName(i), query.GetFindQueryValue(i))
-            for i in range(query.GetFindQuerySize())]
+    tags = [
+        (query.GetFindQueryTagName(i), query.GetFindQueryValue(i))
+        for i in range(query.GetFindQuerySize())
+    ]
     level, q = core.build_find_request(tags)
-    qid = _post("/modalities/%s/query" % UPSTREAM, {"Level": level, "Query": q})["ID"]
+    qid = _post(f"/modalities/{UPSTREAM}/query", {"Level": level, "Query": q})["ID"]
     try:
-        for i in _get("/queries/%s/answers" % qid):
-            content = _get("/queries/%s/answers/%s/content?simplify" % (qid, i))
+        for i in _get(f"/queries/{qid}/answers"):
+            content = _get(f"/queries/{qid}/answers/{i}/content?simplify")
             answer = core.pin_charset(content)
-            answers.FindAddAnswer(orthanc.CreateDicom(
-                json.dumps(answer), None, orthanc.CreateDicomFlags.NONE))
+            answers.FindAddAnswer(
+                orthanc.CreateDicom(json.dumps(answer), None, orthanc.CreateDicomFlags.NONE)
+            )
     finally:
-        orthanc.RestApiDelete("/queries/%s" % qid)
+        orthanc.RestApiDelete(f"/queries/{qid}")
 
 
 orthanc.RegisterFindCallback(OnFind)
@@ -47,7 +50,8 @@ class MoveDriver:
         self.level, self.uids = core.parse_move_request(request)
         modalities = _get("/modalities?expand")
         self.mode, self.worker = core.resolve_destination(
-            request.get("TargetAET"), SELF_AET, modalities, UPSTREAM)
+            request.get("TargetAET"), SELF_AET, modalities, UPSTREAM
+        )
         self.forwarded = set()
         self.move_job = None
         self.expected = 0
@@ -55,18 +59,24 @@ class MoveDriver:
     def _count(self):
         total = 0
         for body in core.count_query_bodies(self.level, self.uids):
-            qid = _post("/modalities/%s/query" % UPSTREAM, body)["ID"]
+            qid = _post(f"/modalities/{UPSTREAM}/query", body)["ID"]
             try:
-                total += len(_get("/queries/%s/answers" % qid))
+                total += len(_get(f"/queries/{qid}/answers"))
             finally:
-                orthanc.RestApiDelete("/queries/%s" % qid)
+                orthanc.RestApiDelete(f"/queries/{qid}")
         return total
 
     def get_size(self):
         self.expected = self._count()
-        self.move_job = _post("/modalities/%s/move" % UPSTREAM, {
-            "Level": self.level, "Resources": self.uids,
-            "TargetAet": SELF_AET, "Synchronous": False})["ID"]
+        self.move_job = _post(
+            f"/modalities/{UPSTREAM}/move",
+            {
+                "Level": self.level,
+                "Resources": self.uids,
+                "TargetAet": SELF_AET,
+                "Synchronous": False,
+            },
+        )["ID"]
         return self.expected
 
     def _local_ids(self):
@@ -76,7 +86,7 @@ class MoveDriver:
         return ids
 
     def _job_state(self):
-        return _get("/jobs/%s" % self.move_job)["State"]
+        return _get(f"/jobs/{self.move_job}")["State"]
 
     def _next_arrival(self):
         deadline = time.time() + ARRIVAL_TIMEOUT
@@ -86,20 +96,19 @@ class MoveDriver:
                 return oid
             state = self._job_state()
             if state == "Failure":
-                raise Exception("upstream C-MOVE job %s failed" % self.move_job)
+                raise RuntimeError(f"upstream C-MOVE job {self.move_job} failed")
             if state == "Success":
-                return None   # job done; fewer instances arrived than expected, nothing left
+                return None  # job done; fewer instances arrived than expected, nothing left
             if time.time() > deadline:
-                raise Exception("timed out waiting for instance arrival")
+                raise RuntimeError("timed out waiting for instance arrival")
             time.sleep(POLL_INTERVAL)
 
     def apply(self):
         oid = self._next_arrival()
         if oid is None:
-            return orthanc.ErrorCode.SUCCESS   # no more arrivals; surplus sub-op is a no-op
+            return orthanc.ErrorCode.SUCCESS  # no more arrivals; surplus sub-op is a no-op
         if self.mode == "forward":
-            _post("/modalities/%s/store" % self.worker,
-                  {"Resources": [oid], "Synchronous": True})
+            _post(f"/modalities/{self.worker}/store", {"Resources": [oid], "Synchronous": True})
         self.forwarded.add(oid)
         return orthanc.ErrorCode.SUCCESS
 
@@ -108,7 +117,5 @@ class MoveDriver:
 
 
 orthanc.RegisterMoveCallback2(
-    lambda **r: MoveDriver(r),
-    lambda d: d.get_size(),
-    lambda d: d.apply(),
-    lambda d: d.free())
+    lambda **r: MoveDriver(r), lambda d: d.get_size(), lambda d: d.apply(), lambda d: d.free()
+)

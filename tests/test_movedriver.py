@@ -1,5 +1,6 @@
-import sys
 import importlib
+import sys
+
 import pytest
 from fakes import FakeOrthanc
 
@@ -17,7 +18,7 @@ def base_routes():
     return {
         ("GET", "/modalities?expand"): MODS,
         ("POST", "/modalities/pacs/query"): {"ID": "cq"},
-        ("GET", "/queries/cq/answers"): [0, 1],          # 2 instances expected
+        ("GET", "/queries/cq/answers"): [0, 1],  # 2 instances expected
         ("POST", "/modalities/pacs/move"): {"ID": "mj"},
         ("GET", "/jobs/mj"): {"State": "Running"},
     }
@@ -31,6 +32,7 @@ def test_get_size_counts_and_starts_async_move():
     assert d.move_job == "mj"
     posted = [b for (m, u, b) in fake.calls if u == "/modalities/pacs/move"][0]
     import json
+
     assert json.loads(posted)["Synchronous"] is False
     assert json.loads(posted)["TargetAet"] == "CLARINETPROXY"
 
@@ -46,6 +48,7 @@ def test_apply_forwards_one_instance_per_call():
     assert d.apply() == 0
     stores = [b for (m, u, b) in fake.calls if u == "/modalities/worker/store"]
     import json
+
     forwarded = sorted(json.loads(b)["Resources"][0] for b in stores)
     assert forwarded == ["i1", "i2"]
 
@@ -62,12 +65,12 @@ def test_apply_cache_mode_does_not_forward():
 
 def test_apply_raises_on_job_failure_when_no_arrival():
     routes = base_routes()
-    routes[("POST", "/tools/find")] = []                 # nothing arrived
+    routes[("POST", "/tools/find")] = []  # nothing arrived
     routes[("GET", "/jobs/mj")] = {"State": "Failure"}
     cp, fake = load_proxy(routes)
     d = cp.MoveDriver({"Level": "STUDY", "StudyInstanceUID": "1.2", "TargetAET": "WORKER"})
     d.get_size()
-    with pytest.raises(Exception):
+    with pytest.raises(RuntimeError):
         d.apply()
 
 
@@ -79,10 +82,10 @@ def test_init_rejects_unknown_target():
 
 def test_apply_noop_when_job_done_and_fewer_arrived():
     routes = base_routes()
-    routes[("POST", "/tools/find")] = []                 # nothing actually arrived
-    routes[("GET", "/jobs/mj")] = {"State": "Success"}    # but the move job succeeded
+    routes[("POST", "/tools/find")] = []  # nothing actually arrived
+    routes[("GET", "/jobs/mj")] = {"State": "Success"}  # but the move job succeeded
     cp, fake = load_proxy(routes)
     d = cp.MoveDriver({"Level": "STUDY", "StudyInstanceUID": "1.2", "TargetAET": "WORKER"})
     d.get_size()
-    assert d.apply() == 0                                 # returns SUCCESS, does NOT hang or raise
+    assert d.apply() == 0  # returns SUCCESS, does NOT hang or raise
     assert not any(u.endswith("/store") for (m, u, b) in fake.calls)

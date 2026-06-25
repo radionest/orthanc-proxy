@@ -1,7 +1,8 @@
 import os
 import time
-import requests
+
 import pytest
+import requests
 
 # Defaults match the docker-compose harness; the LSB/VM harness overrides via env.
 PACS = os.environ.get("PACS_URL", "http://localhost:8101")

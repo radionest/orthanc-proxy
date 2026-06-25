@@ -24,7 +24,9 @@ def build_find_request(tags):
             level = value or "STUDY"
         else:
             query[name] = value
-    query["SpecificCharacterSet"] = ANSWER_CHARSET   # ask the PACS to answer in UTF-8 (Cyrillic-safe)
+    query["SpecificCharacterSet"] = (
+        ANSWER_CHARSET  # ask the PACS to answer in UTF-8 (Cyrillic-safe)
+    )
     return level, query
 
 
@@ -41,7 +43,7 @@ def parse_move_request(request):
     fully-qualified UID dicts, one per requested item. '\\'-separated values expand positionally."""
     level = request["Level"]
     if level not in LEVEL_KEYS:
-        raise ValueError("unsupported C-MOVE level %r (PATIENT not supported)" % level)
+        raise ValueError(f"unsupported C-MOVE level {level!r} (PATIENT not supported)")
     keys = LEVEL_KEYS[level]
     split = {k: (request.get(k, "") or "").split("\\") for k in keys}
     n = max((len(v) for v in split.values()), default=1)
@@ -69,7 +71,7 @@ def resolve_destination(target_aet, self_aet, modalities, upstream_alias):
         return ("cache", None)
     alias = find_alias_for_aet(modalities, target_aet)
     if alias is None or alias == upstream_alias:
-        raise ValueError("unknown move destination AET %r" % target_aet)
+        raise ValueError(f"unknown move destination AET {target_aet!r}")
     return ("forward", alias)
 
 

@@ -1,20 +1,23 @@
 import datetime
-import pytest
+
 import proxy_core
+import pytest
 
 MODS = {
-    "pacs":   {"AET": "PACS",   "Host": "10.0.0.1", "Port": 104},
+    "pacs": {"AET": "PACS", "Host": "10.0.0.1", "Port": 104},
     "worker": {"AET": "WORKER", "Host": "10.0.0.2", "Port": 4242},
 }
 
 
 def test_build_find_request_splits_level_from_query():
-    tags = [("QueryRetrieveLevel", "SERIES"),
-            ("PatientID", "42"),
-            ("StudyInstanceUID", "")]
+    tags = [("QueryRetrieveLevel", "SERIES"), ("PatientID", "42"), ("StudyInstanceUID", "")]
     level, query = proxy_core.build_find_request(tags)
     assert level == "SERIES"
-    assert query == {"PatientID": "42", "StudyInstanceUID": "", "SpecificCharacterSet": "ISO_IR 192"}
+    assert query == {
+        "PatientID": "42",
+        "StudyInstanceUID": "",
+        "SpecificCharacterSet": "ISO_IR 192",
+    }
 
 
 def test_build_find_request_defaults_to_study():
@@ -26,7 +29,8 @@ def test_build_find_request_defaults_to_study():
 def test_build_find_request_forces_utf8_charset():
     # even if the downstream SCU asked for a different charset, force ISO_IR 192 upstream
     level, query = proxy_core.build_find_request(
-        [("PatientName", ""), ("SpecificCharacterSet", "ISO_IR 100")])
+        [("PatientName", ""), ("SpecificCharacterSet", "ISO_IR 100")]
+    )
     assert query["SpecificCharacterSet"] == "ISO_IR 192"
 
 
@@ -39,21 +43,20 @@ def test_pin_charset_forces_utf8_and_copies():
 
 
 def test_parse_move_request_study_level():
-    level, uids = proxy_core.parse_move_request(
-        {"Level": "STUDY", "StudyInstanceUID": "1.2.3"})
+    level, uids = proxy_core.parse_move_request({"Level": "STUDY", "StudyInstanceUID": "1.2.3"})
     assert level == "STUDY"
     assert uids == [{"StudyInstanceUID": "1.2.3"}]
 
 
 def test_parse_move_request_series_full_hierarchy():
     level, uids = proxy_core.parse_move_request(
-        {"Level": "SERIES", "StudyInstanceUID": "1.2", "SeriesInstanceUID": "1.2.9"})
+        {"Level": "SERIES", "StudyInstanceUID": "1.2", "SeriesInstanceUID": "1.2.9"}
+    )
     assert uids == [{"StudyInstanceUID": "1.2", "SeriesInstanceUID": "1.2.9"}]
 
 
 def test_parse_move_request_multi_study_splits_positionally():
-    level, uids = proxy_core.parse_move_request(
-        {"Level": "STUDY", "StudyInstanceUID": "1.2\\1.3"})
+    level, uids = proxy_core.parse_move_request({"Level": "STUDY", "StudyInstanceUID": "1.2\\1.3"})
     assert uids == [{"StudyInstanceUID": "1.2"}, {"StudyInstanceUID": "1.3"}]
 
 
@@ -63,11 +66,17 @@ def test_parse_move_request_rejects_patient_level():
 
 
 def test_resolve_destination_self_is_cache():
-    assert proxy_core.resolve_destination("CLARINETPROXY", "CLARINETPROXY", MODS, "pacs") == ("cache", None)
+    assert proxy_core.resolve_destination("CLARINETPROXY", "CLARINETPROXY", MODS, "pacs") == (
+        "cache",
+        None,
+    )
 
 
 def test_resolve_destination_worker_is_forward():
-    assert proxy_core.resolve_destination("WORKER", "CLARINETPROXY", MODS, "pacs") == ("forward", "worker")
+    assert proxy_core.resolve_destination("WORKER", "CLARINETPROXY", MODS, "pacs") == (
+        "forward",
+        "worker",
+    )
 
 
 def test_resolve_destination_unknown_raises():
@@ -88,11 +97,13 @@ def test_resolve_destination_missing_target_raises():
 def test_local_find_bodies_per_item_full_hierarchy():
     uids = [{"StudyInstanceUID": "1.2", "SeriesInstanceUID": "1.2.9"}]
     bodies = proxy_core.local_find_bodies("SERIES", uids)
-    assert bodies == [{
-        "Level": "Instance",
-        "Query": {"StudyInstanceUID": "1.2", "SeriesInstanceUID": "1.2.9"},
-        "Expand": True,
-    }]
+    assert bodies == [
+        {
+            "Level": "Instance",
+            "Query": {"StudyInstanceUID": "1.2", "SeriesInstanceUID": "1.2.9"},
+            "Expand": True,
+        }
+    ]
 
 
 def test_count_query_bodies_instance_level():
@@ -114,7 +125,7 @@ def test_select_unforwarded_none_left():
 
 def test_is_expired_true_and_false():
     now = datetime.datetime(2026, 6, 24, 12, 0, 0)
-    assert proxy_core.is_expired("20260624T113000", now, 1200) is True   # 30 min old > 20 min
+    assert proxy_core.is_expired("20260624T113000", now, 1200) is True  # 30 min old > 20 min
     assert proxy_core.is_expired("20260624T115500", now, 1200) is False  # 5 min old
 
 

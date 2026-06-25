@@ -1,8 +1,9 @@
 import io
-import requests
+
 import pydicom
+import requests
 from pydicom.dataset import Dataset, FileMetaDataset
-from pydicom.uid import ExplicitVRLittleEndian, generate_uid, CTImageStorage
+from pydicom.uid import CTImageStorage, ExplicitVRLittleEndian, generate_uid
 
 
 def build_cyrillic_instance(study_uid, series_uid, sop_uid):
@@ -22,9 +23,9 @@ def build_cyrillic_instance(study_uid, series_uid, sop_uid):
     ds.file_meta = meta
     buf = io.BytesIO()
     try:
-        pydicom.dcmwrite(buf, ds, enforce_file_format=True)   # pydicom >= 3.0
+        pydicom.dcmwrite(buf, ds, enforce_file_format=True)  # pydicom >= 3.0
     except TypeError:
-        ds.is_little_endian = True                            # pydicom < 3.0 fallback
+        ds.is_little_endian = True  # pydicom < 3.0 fallback
         ds.is_implicit_VR = False
         pydicom.dcmwrite(buf, ds, write_like_original=False)
     return buf.getvalue()

@@ -4,13 +4,13 @@
 Run by orthanc-proxy-evict.timer every 5 minutes. Deletes studies whose LastUpdate
 is older than TTL_SECONDS, and logs a WARN when storage fill >= WARN_FILL of the max."""
 
-import os
-import sys
-import logging
 import datetime
 import json as _json
-import urllib.request
+import logging
+import os
+import sys
 import urllib.error
+import urllib.request
 
 sys.path.insert(0, os.environ.get("PROXY_CORE_DIR", "/opt/orthanc/plugins"))
 import proxy_core as core
@@ -31,7 +31,7 @@ class _Resp:
 
     def raise_for_status(self):
         if self.status >= 400:
-            raise RuntimeError("HTTP %d" % self.status)
+            raise RuntimeError(f"HTTP {self.status}")
 
     def json(self):
         return _json.loads(self._body)

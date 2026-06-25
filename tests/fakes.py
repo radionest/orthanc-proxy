@@ -44,7 +44,7 @@ class FakeOrthanc:
     def _resolve(self, method, uri, body):
         self.calls.append((method, uri, body))
         if (method, uri) not in self.routes:
-            raise KeyError("no fake route for %s %s" % (method, uri))
+            raise KeyError(f"no fake route for {method} {uri}")
         val = self.routes[(method, uri)]
         if callable(val):
             val = val(uri, body)

@@ -1,8 +1,9 @@
-import sys
-import json
 import importlib
+import json
+import sys
+
 import pytest
-from fakes import FakeOrthanc, FakeQuery, FakeAnswers
+from fakes import FakeAnswers, FakeOrthanc, FakeQuery
 
 
 def load_proxy(routes):
@@ -26,10 +27,15 @@ def test_onfind_forwards_query_and_pins_charset():
 
     # forwarded the right query upstream
     posted = [b for (m, u, b) in fake.calls if u == "/modalities/pacs/query"][0]
-    assert json.loads(posted) == {"Level": "STUDY", "Query": {"PatientName": "", "SpecificCharacterSet": "ISO_IR 192"}}
+    assert json.loads(posted) == {
+        "Level": "STUDY",
+        "Query": {"PatientName": "", "SpecificCharacterSet": "ISO_IR 192"},
+    }
     # answer carries pinned charset + Cyrillic intact
     assert json.loads(answers.added[0].decode("utf-8")) == {
-        "PatientName": "Иванов", "SpecificCharacterSet": "ISO_IR 192"}
+        "PatientName": "Иванов",
+        "SpecificCharacterSet": "ISO_IR 192",
+    }
     # query handle released
     assert ("DELETE", "/queries/q1", None) in fake.calls
 
@@ -37,6 +43,7 @@ def test_onfind_forwards_query_and_pins_charset():
 def test_onfind_releases_query_handle_on_error():
     def boom(uri, body):
         raise RuntimeError("answers fetch failed")
+
     routes = {
         ("POST", "/modalities/pacs/query"): {"ID": "q1"},
         ("GET", "/queries/q1/answers"): boom,

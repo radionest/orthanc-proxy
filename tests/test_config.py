@@ -1,5 +1,5 @@
-import json
 import glob
+import json
 import os
 
 ETC = os.path.join(os.path.dirname(__file__), "..", "etc")
@@ -32,14 +32,19 @@ def test_core_security_invariants():
     sec = load("20-security.json")
     assert sec["DicomCheckCalledAet"] is True
     assert sec["DicomCheckModalityHost"] is True
-    for k in ("DicomAlwaysAllowEcho", "DicomAlwaysAllowStore",
-              "DicomAlwaysAllowFind", "DicomAlwaysAllowMove", "DicomAlwaysAllowGet"):
+    for k in (
+        "DicomAlwaysAllowEcho",
+        "DicomAlwaysAllowStore",
+        "DicomAlwaysAllowFind",
+        "DicomAlwaysAllowMove",
+        "DicomAlwaysAllowGet",
+    ):
         assert sec[k] is False
 
 
 def test_modalities_and_dicomweb():
     mods = load("30-modalities.json")["DicomModalities"]
-    assert mods["pacs"]["AllowStore"] is True            # accept C-STORE-back on move-to-self
+    assert mods["pacs"]["AllowStore"] is True  # accept C-STORE-back on move-to-self
     worker = mods["worker_X"]
     assert worker["AllowFind"] and worker["AllowMove"] and worker["AllowGet"]
     assert worker["AllowStore"] is False
@@ -48,4 +53,4 @@ def test_modalities_and_dicomweb():
     assert dw["Enable"] is True
     assert dw["Root"] == "/dicom-web/"
     assert dw["PublicRoot"] == "/pacs-web/"
-    assert "Host" not in dw                               # deprecated; must not be set
+    assert "Host" not in dw  # deprecated; must not be set
