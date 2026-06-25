@@ -1,0 +1,21 @@
+{
+  "Name": "vmnet-pacs",
+  "DicomAet": "HOSPITALPACS",
+  "DicomPort": 4242,
+  "HttpPort": 8042,
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": false,
+  "DicomCheckCalledAet": true,
+  "DicomCheckModalityHost": false,
+  "DicomAlwaysAllowEcho": false,
+  "DicomAlwaysAllowStore": false,
+  "DicomAlwaysAllowFind": false,
+  "DicomAlwaysAllowMove": false,
+  "DicomAlwaysAllowGet": false,
+  "StorageDirectory": "/var/lib/orthanc/db",
+  "IndexDirectory": "/var/lib/orthanc/db",
+  "DicomModalities": {
+    "proxy": { "AET": "CLARINETPROXY", "Host": "proxy", "Port": 4242, "AllowEcho": true, "AllowFind": true, "AllowMove": true, "AllowStore": true }
+  },
+  "DefaultEncoding": "Utf8"
+}
