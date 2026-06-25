@@ -53,12 +53,16 @@ EOF
     -device virtio-9p-pci,fsdev=repo,mount_tag=repo \
     -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
     -serial file:"$WORK/$name-build.log" -display none &
-  local qpid=$! t=0
+  local qpid=$! t=0 timed_out=0
   while kill -0 "$qpid" 2>/dev/null; do
-    [ "$t" -ge "$TIMEOUT" ] && { echo "golden $name TIMEOUT"; kill "$qpid" 2>/dev/null || true; break; }
+    [ "$t" -ge "$TIMEOUT" ] && { echo "golden $name TIMEOUT"; kill "$qpid" 2>/dev/null || true; timed_out=1; break; }
     sleep 10; t=$((t + 10))
   done
   wait "$qpid" 2>/dev/null || true
+  if [ "$timed_out" = 1 ]; then
+    echo "golden $name FAILED (timeout) — overlay not flattened"
+    return 1
+  fi
   qemu-img convert -O qcow2 "$overlay" "$out"
   echo "built $out"
 }
