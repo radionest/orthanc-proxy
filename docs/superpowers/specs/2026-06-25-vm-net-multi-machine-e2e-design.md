@@ -26,7 +26,7 @@ adds that topology.
 |---|---|---|
 | S1 | C-MOVE routing to the requesting client | Client A does C-FIND→C-MOVE(`study1`, dest `CLIENTA`) **through the proxy**; A's Storage SCP receives all N instances of `study1`; B receives 0. |
 | S2 | AET isolation / negative tests | A's direct association to the PACS (C-ECHO/C-FIND) is **rejected** (PACS does not know `CLIENTA`); a spoofed `GHOST` AET to the proxy is **rejected**. |
-| S3 | Full pass-through | C-FIND with a Cyrillic `PatientName` returns correct UTF-8; C-STORE push client→proxy→PACS lands the instance on the PACS; QIDO/WADO over the proxy REST returns the study. |
+| S3 | Full pass-through | C-FIND with a Cyrillic `PatientName` returns correct UTF-8; a client C-STORE to the proxy is **accepted into the proxy cache** and becomes visible via QIDO; QIDO/WADO over the proxy REST returns a cached study. (The proxy registers only Find+Move callbacks — it has **no** C-STORE→PACS forwarding; that is out of scope, not a bug.) |
 | S4 | Concurrency — different studies | A↔`study1` and B↔`study2` fired simultaneously; both complete, each receives its own study in full, with no cross-contamination. |
 | S5 | Concurrency — same study (characterization) | A and B↔`study1` fired simultaneously; **hard assert**: both receive `study1` in full. **Observation (recorded, not asserted):** proxy→PACS fetch count for the study. |
 | S6 | Memory / eviction under load | With a small `TTL_SECONDS` + `MAX_STORAGE_MB`, drive retrievals then run `evict.py`; TTL-expired studies are deleted and a fill WARN is logged at the threshold. |
@@ -140,8 +140,9 @@ the delete + the WARN.
   associates to the proxy under AET `GHOST` (not in the proxy modalities); expect reject. Both rejections
   recorded as facts.
 - **S3** — C-FIND with Cyrillic name through the proxy → assert UTF-8 round-trips; C-STORE from A to the
-  proxy → assert the instance reaches the PACS; QIDO `/dicom-web/studies` + WADO over the proxy REST →
-  assert the study is listed/retrievable.
+  proxy → assert the instance is **accepted and queryable via the proxy's QIDO** (the plugin has no
+  store-forward to the PACS — `RegisterReceivedInstanceCallback` is not used); QIDO `/dicom-web/studies`
+  + WADO over the proxy REST on a cached study → assert it is listed/retrievable.
 - **S4** — barrier-synchronized A↔`study1`, B↔`study2`; assert both complete in full, no cross-leak
   (A never sees `study2` instances and vice-versa).
 - **S5** — barrier-synchronized A↔`study1`, B↔`study1`; **hard**: both receive `study1` in full;
@@ -169,6 +170,9 @@ logs, and the `vm-net-done` sentinel.
 
 - **Astra ЗПС/МКЦ/ГОСТ** layers are not exercised — they need a licensed Astra SE image. This harness
   validates the LSB artifact on the Astra *technical base* (Buster), like `vm-lsb/`.
+- **C-STORE forwarding to the upstream PACS is not implemented** — `clarinet_proxy.py` registers only
+  `RegisterFindCallback` + `RegisterMoveCallback2`. A client store to the proxy is cached locally; the
+  harness asserts caching, not forwarding.
 - **C-GET** is not in the selected scenarios. With real `pynetdicom` clients it could be tested honestly
   (unlike the `vm-lsb/` `xfail`, which is an Orthanc query-handle driver regression, not a proxy bug) —
   added only on request.
