@@ -6,8 +6,10 @@ Items marked **[verify on box]** could not be confirmed from public docs; check 
 
 ## 1. Which plugin build (`install.sh` handles this automatically)
 
-`install.sh` detects Astra (`ID=astra`, `VARIANT_ID=smolensk`) and maps `VERSION_ID` → the
-LSB Python-plugin build, because Astra leaves `VERSION_CODENAME` **empty**:
+`install.sh` detects Astra by `ID=astra` and maps `VERSION_ID` → the LSB Python-plugin build.
+Astra sets **no `VARIANT_ID`** and puts the release into both `VERSION_ID` and `VERSION_CODENAME`
+as `1.7_x86-64` (a string, not a Debian codename like `buster`), so the build is selected from
+`VERSION_ID` (`1.7*` → Buster, `1.8*` → Bookworm), not the codename:
 
 | Astra SE | Debian base | glibc | LSB `libOrthancPython.so` build |
 |---|---|---|---|
@@ -26,8 +28,8 @@ system `python3` symlink points to. So an Astra box whose `python3` was **swappe
 still works **as long as `libpython3.7` remains installed**:
 
 ```bash
-ldconfig -p | grep libpython3.7      # must be present for the buster-3.7 plugin
-sudo apt-get install libpython3.7    # if missing — install alongside 3.12
+/sbin/ldconfig -p | grep libpython3.7   # must be present for the buster-3.7 plugin (ldconfig lives in /sbin)
+sudo apt-get install libpython3.7       # if missing — install alongside 3.12
 ```
 
 `install.sh` prints a `WARNING` if the required `libpython` is absent. This proxy's plugin
@@ -71,9 +73,9 @@ GOST cipher instead of the default in `luks-setup.md`.
 ## 6. On-box pre-flight checklist
 
 ```bash
-cat /etc/os-release            # ID=astra, VARIANT_ID=smolensk, VERSION_ID=1.7 (or 1.8)
+cat /etc/os-release            # ID=astra, VERSION_ID=1.7_x86-64 (no VARIANT_ID); 1.8_x86-64 on 1.8
 python3 --version              # informational; the plugin uses its embedded Python, not this
-ldconfig -p | grep libpython3.7   # 3.7 runtime present for the Buster plugin? (1.8 → 3.11)
+/sbin/ldconfig -p | grep libpython3.7   # 3.7 runtime present for the Buster plugin? (1.8 → 3.11)
 ldd --version                  # glibc — expect ~2.28 on 1.7, ~2.36 on 1.8
 astra-modeswitch get           # is ЗПС active? (then §3 applies)
 ```

@@ -16,10 +16,12 @@ py_subdir() {
   id="${ID:-}"; variant="${VARIANT_ID:-}"; ver_id="${VERSION_ID:-}"
   codename="${VERSION_CODENAME:-unknown}"
 
-  # Astra Linux SE Smolensk leaves VERSION_CODENAME empty; map VERSION_ID -> Debian base.
-  # The plugin embeds its own libpython, so the build is chosen by the OS base (glibc + the
-  # base's Python ABI), NOT by the system `python3` (Astra boxes often swap it, e.g. to 3.12).
-  if [ "$id" = "astra" ] && [ "$variant" = "smolensk" ]; then
+  # Astra sets ID=astra with NO VARIANT_ID, and puts the release into both VERSION_ID and
+  # VERSION_CODENAME as e.g. "1.7_x86-64" (a string, not a Debian codename) — so match on
+  # ID=astra and map VERSION_ID -> Debian base. The plugin embeds its own libpython, so the
+  # build is chosen by the OS base (glibc + the base's Python ABI), NOT by the system `python3`
+  # (Astra boxes often swap it, e.g. to 3.12).
+  if [ "$id" = "astra" ]; then
     case "$ver_id" in
       1.8*) echo "debian-bookworm-python-3.11" ;;   # Bookworm, glibc 2.36
       1.7*) echo "debian-buster-python-3.7" ;;       # Buster, glibc 2.28 — only build that runs here
@@ -47,7 +49,8 @@ check_libpython() {
   local need_py
   need_py="$(printf '%s' "$1" | sed -n 's/.*python-\([0-9.]*\)$/\1/p')"
   [ -n "$need_py" ] || return 0
-  if ! ldconfig -p 2>/dev/null | grep -q "libpython${need_py}"; then
+  # Astra (and Debian) keep ldconfig in /sbin, which is off a normal user's PATH — fall back to it.
+  if ! { ldconfig -p 2>/dev/null || /sbin/ldconfig -p 2>/dev/null; } | grep -q "libpython${need_py}"; then
     echo "WARNING: libpython${need_py} not found (ldconfig) — the Orthanc Python plugin will not" \
          "load. Install it, e.g. 'apt-get install libpython${need_py}', alongside any other Python." >&2
   fi
