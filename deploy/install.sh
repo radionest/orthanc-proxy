@@ -20,7 +20,8 @@ py_subdir() {
   # VERSION_CODENAME as e.g. "1.7_x86-64" (a string, not a Debian codename) — so match on
   # ID=astra and map VERSION_ID -> Debian base. The plugin embeds its own libpython, so the
   # build is chosen by the OS base (glibc + the base's Python ABI), NOT by the system `python3`
-  # (Astra boxes often swap it, e.g. to 3.12).
+  # (Astra boxes often swap it, e.g. to 3.12). The map below covers SE «Smolensk» (1.6/1.7/1.8);
+  # CE «Орёл» (2.x) also has ID=astra but falls to the *) arm and is told to pick the build by hand.
   if [ "$id" = "astra" ]; then
     case "$ver_id" in
       1.8*) echo "debian-bookworm-python-3.11" ;;   # Bookworm, glibc 2.36
@@ -28,7 +29,9 @@ py_subdir() {
       1.6*) echo "ERROR: Astra 1.6 (Debian 9 Stretch / Python 3.5): no LSB orthanc-python build for" \
                  "Py 3.5. Keep libpython3.7 and use debian-buster-python-3.7, or build from source." >&2
             return 1 ;;
-      *)    echo "ERROR: unsupported Astra VERSION_ID '$ver_id'." >&2; return 1 ;;
+      *)    echo "ERROR: unsupported Astra VERSION_ID '$ver_id' — this maps SE «Smolensk» 1.6/1.7/1.8" \
+                 "only. For CE «Орёл» (2.x) pick the orthanc-python LSB subdir matching its Debian base" \
+                 "manually from $BASE/orthanc-python/." >&2; return 1 ;;
     esac
     return 0
   fi
@@ -49,8 +52,8 @@ check_libpython() {
   local need_py
   need_py="$(printf '%s' "$1" | sed -n 's/.*python-\([0-9.]*\)$/\1/p')"
   [ -n "$need_py" ] || return 0
-  # Astra (and Debian) keep ldconfig in /sbin, which is off a normal user's PATH — fall back to it.
-  if ! { ldconfig -p 2>/dev/null || /sbin/ldconfig -p 2>/dev/null; } | grep -q "libpython${need_py}"; then
+  # ldconfig lives in /usr/sbin (/sbin is a usrmerge symlink), off a normal user's PATH — add both.
+  if ! PATH="/usr/sbin:/sbin:$PATH" ldconfig -p 2>/dev/null | grep -q "libpython${need_py}"; then
     echo "WARNING: libpython${need_py} not found (ldconfig) — the Orthanc Python plugin will not" \
          "load. Install it, e.g. 'apt-get install libpython${need_py}', alongside any other Python." >&2
   fi
