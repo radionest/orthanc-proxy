@@ -42,6 +42,15 @@ def _barrier_ok(result, phase):
     return bool(e and e.get("ok"))
 
 
+def _drain_failed(result, phase):
+    """True iff the agent recorded a drain timeout for `phase` (instances did not all arrive
+    before the phase switch). Absence of a drain event is not a failure."""
+    return any(
+        x.get("kind") == "drain" and x.get("phase") == phase and not x.get("ok")
+        for x in result.get("events", [])
+    )
+
+
 def check_s1(clienta, clientb, study, n):
     fails = []
     if received_count(clienta, "s1", study) != n:
@@ -54,6 +63,8 @@ def check_s1(clienta, clientb, study, n):
         fails.append(
             "S1: clientB received {} in s1 (expected nothing)".format(_studies_in(clientb, "s1"))
         )
+    if _drain_failed(clienta, "s1"):
+        fails.append("S1: clientA drain timed out before all instances arrived")
     return fails
 
 
@@ -95,6 +106,8 @@ def check_s4(clienta, clientb, study_a, study_b, n):
         fails.append("S4: clientB cross-contaminated: {}".format(_studies_in(clientb, "s4_diff")))
     if not (_barrier_ok(clienta, "s4_diff") and _barrier_ok(clientb, "s4_diff")):
         fails.append("S4: concurrency barrier did not synchronize both clients")
+    if _drain_failed(clienta, "s4_diff") or _drain_failed(clientb, "s4_diff"):
+        fails.append("S4: a client's drain timed out before switching phase")
     return fails
 
 
@@ -106,6 +119,8 @@ def check_s5(clienta, clientb, study, n):
         fails.append(f"S5: clientB incomplete for shared {study}")
     if not (_barrier_ok(clienta, "s5_same") and _barrier_ok(clientb, "s5_same")):
         fails.append("S5: concurrency barrier did not synchronize both clients")
+    if _drain_failed(clienta, "s5_same") or _drain_failed(clientb, "s5_same"):
+        fails.append("S5: a client's drain timed out before switching phase")
     return fails  # proxy->PACS fetch count is recorded as an observation, not asserted
 
 

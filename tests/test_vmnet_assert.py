@@ -40,6 +40,16 @@ def test_s1_fails_when_a_gets_extra_study():
     assert va.check_s1(a, b, STUDY1, 1000)  # extra STUDY2 -> failure
 
 
+def test_s1_fails_when_drain_timed_out():
+    a = _client(
+        "clienta",
+        {"s1": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}},
+        [{"kind": "drain", "phase": "s1", "study": STUDY1, "ok": False}],
+    )
+    b = _client("clientb", {"s1": {}})
+    assert va.check_s1(a, b, STUDY1, 1000)  # drain timeout -> failure
+
+
 def test_s2_pass_when_both_probes_rejected():
     a = _client(
         "clienta",
@@ -140,6 +150,35 @@ def test_s4_fails_when_barrier_not_synced():
     assert va.check_s4(a, b, STUDY2, STUDY3, 1000)
 
 
+def test_s4_pass_with_successful_drain():
+    drain_a = {"kind": "drain", "phase": "s4_diff", "study": STUDY2, "ok": True}
+    drain_b = {"kind": "drain", "phase": "s4_diff", "study": STUDY3, "ok": True}
+    a = _client(
+        "clienta",
+        {"s4_diff": {STUDY2: {"count": 1000, "from": "CLARINETPROXY"}}},
+        [BAR_S4, drain_a],
+    )
+    b = _client(
+        "clientb",
+        {"s4_diff": {STUDY3: {"count": 1000, "from": "CLARINETPROXY"}}},
+        [BAR_S4, drain_b],
+    )
+    assert va.check_s4(a, b, STUDY2, STUDY3, 1000) == []
+
+
+def test_s4_fails_when_drain_timed_out():
+    drain_a = {"kind": "drain", "phase": "s4_diff", "study": STUDY2, "ok": False}
+    a = _client(
+        "clienta",
+        {"s4_diff": {STUDY2: {"count": 1000, "from": "CLARINETPROXY"}}},
+        [BAR_S4, drain_a],
+    )
+    b = _client(
+        "clientb", {"s4_diff": {STUDY3: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S4]
+    )
+    assert va.check_s4(a, b, STUDY2, STUDY3, 1000)  # drain timeout -> failure
+
+
 def test_s5_pass_when_both_get_full_study():
     a = _client(
         "clienta", {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S5]
@@ -156,6 +195,19 @@ def test_s5_fails_when_b_incomplete():
     )
     b = _client("clientb", {"s5_same": {STUDY1: {"count": 500, "from": "CLARINETPROXY"}}}, [BAR_S5])
     assert va.check_s5(a, b, STUDY1, 1000)
+
+
+def test_s5_fails_when_drain_timed_out():
+    drain_b = {"kind": "drain", "phase": "s5_same", "study": STUDY1, "ok": False}
+    a = _client(
+        "clienta", {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}}, [BAR_S5]
+    )
+    b = _client(
+        "clientb",
+        {"s5_same": {STUDY1: {"count": 1000, "from": "CLARINETPROXY"}}},
+        [BAR_S5, drain_b],
+    )
+    assert va.check_s5(a, b, STUDY1, 1000)  # drain timeout -> failure
 
 
 def test_s6_pass_on_ttl_delete_and_warn():

@@ -60,13 +60,20 @@ def _on_store(event):
 
 def drain(phase, study, n, timeout=120):
     """Wait until all n instances of `study` for `phase` have been recorded before the
-    caller switches phase, so a late sub-operation can never land in the next phase's bucket."""
+    caller switches phase, so a late sub-operation can never land in the next phase's bucket.
+    Record a `drain` event (ok=False on timeout) so a silent shortfall surfaces to the host gate."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         with _lock:
-            if ac.received_count(result, phase, study) >= n:
-                return
+            got = ac.received_count(result, phase, study)
+        if got >= n:
+            ac.record_event(result, "drain", phase=phase, study=study, got=got, n=n, ok=True)
+            return True
         time.sleep(0.5)
+    with _lock:
+        got = ac.received_count(result, phase, study)
+    ac.record_event(result, "drain", phase=phase, study=study, got=got, n=n, ok=False)
+    return False
 
 
 def _qido_studies(study_uid, retries=5):
@@ -246,25 +253,26 @@ def main():
             qido_cached(STUDY[1])
             wado_cached(STUDY[1])
             cstore_to_proxy()
-            # S4 different studies (A=study2)
-            _current_phase["name"] = "s4_diff"
+            # S4 different studies (A=study2). Switch phase only after the barrier so a late
+            # S1 sub-operation arriving mid-rendezvous cannot be mislabelled into s4_diff.
             barrier("s4_diff", "a_s4", ["a_s4", "b_s4"])
+            _current_phase["name"] = "s4_diff"
             cmove("s4_diff", STUDY[2])
             drain("s4_diff", STUDY[2], INSTANCES)
             # S5 same study (both = study1)
-            _current_phase["name"] = "s5_same"
             barrier("s5_same", "a_s5", ["a_s5", "b_s5"])
+            _current_phase["name"] = "s5_same"
             cmove("s5_same", STUDY[1])
             drain("s5_same", STUDY[1], INSTANCES)
         else:  # clientb
             _current_phase["name"] = "s1"  # idle: SCP up, receives nothing
             time.sleep(1)
-            _current_phase["name"] = "s4_diff"
             barrier("s4_diff", "b_s4", ["a_s4", "b_s4"])
+            _current_phase["name"] = "s4_diff"
             cmove("s4_diff", STUDY[3])
             drain("s4_diff", STUDY[3], INSTANCES)
-            _current_phase["name"] = "s5_same"
             barrier("s5_same", "b_s5", ["a_s5", "b_s5"])
+            _current_phase["name"] = "s5_same"
             cmove("s5_same", STUDY[1])
             drain("s5_same", STUDY[1], INSTANCES)
         time.sleep(5)  # let final sub-operations land on the SCP
